@@ -121,6 +121,14 @@ test('localhost API analyzes, trims, converts, verifies, retries, and persists l
   assert.equal(path.extname(mp4Job.outputPath).toLowerCase(), '.mp4');
   assert.ok(Math.abs(mp4Job.verifiedDuration - 1.75) < 0.35);
   assert.ok((await fs.stat(mp4Job.outputPath)).size > 256);
+  const thumbnailResponse = await fetch(`${base}/api/jobs/${mp4Job.id}/thumbnail`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(thumbnailResponse.status, 200);
+  assert.match(thumbnailResponse.headers.get('content-type') || '', /^image\/jpeg/);
+  const thumbnail = Buffer.from(await thumbnailResponse.arrayBuffer());
+  assert.ok(thumbnail.length > 256);
+  assert.equal(thumbnail.subarray(0, 2).toString('hex'), 'ffd8');
   const mp4Probe = await runProcess(ffprobe, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', mp4Job.outputPath]);
   assert.ok(Math.abs(Number(mp4Probe.stdout.trim()) - 1.75) < 0.35);
 
@@ -132,6 +140,10 @@ test('localhost API analyzes, trims, converts, verifies, retries, and persists l
   assert.equal(path.extname(mp3Job.outputPath).toLowerCase(), '.mp3');
   assert.ok(Math.abs(mp3Job.verifiedDuration - 2.375) < 0.35);
   assert.ok((await fs.stat(mp3Job.outputPath)).size > 256);
+  const audioThumbnail = await fetch(`${base}/api/jobs/${mp3Job.id}/thumbnail`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(audioThumbnail.status, 404);
 
   const badBinarySetting = await request(base, token, '/api/settings', {
     method: 'POST', body: { ffmpegPath: path.join(root, 'missing-ffmpeg.exe') }

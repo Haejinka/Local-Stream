@@ -1,48 +1,63 @@
 # Local Stream
 
-**A local-first YouTube search, clip editor, and media export panel for Adobe Premiere Pro.**
+**Search, preview, trim, and export media without leaving Adobe Premiere Pro.**
 
-Search with your own YouTube Data API v3 key, set an In and Out point, and export a Premiere-friendly video or audio file. Press Enter to search. Local Stream runs its processing backend on your Windows computer and adds completed exports to the `LocalStream Downloads` bin in the active Premiere project.
+Local Stream is a CEP panel for Windows. It searches YouTube with your own Data API key, opens local media, and exports selected ranges as Premiere-friendly MP4 or MP3 files. Processing runs on your computer. Finished files appear in Recent Downloads with thumbnails and can be dragged into Premiere.
 
 ## Download
 
-**[Download the Local Stream setup wizard for Windows](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe)**
+| Package | Use |
+| --- | --- |
+| **[Windows setup wizard (0.2.2)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.2.exe)** | Recommended. Installs the panel and prepares required media tools. [SHA-256 checksum](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.2.exe.sha256). |
+| [Signed ZXP (0.2.2)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.2.zxp) | Manual installation through Adobe's Unified Plugin Installer. |
 
-Verify the download with its [SHA-256 checksum](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe.sha256).
-
-The wizard installs the signed Premiere panel through Adobe Creative Cloud's Unified Plugin Installer and prepares Node.js, FFmpeg, FFprobe, and yt-dlp. Close Premiere before setup. After it finishes, open the panel and enter your own YouTube Data API v3 key in Settings. If you prefer to install the package separately, [download the ZXP](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp). See the [Windows setup guide](docs/INSTALLATION.md) for details.
+Close Premiere before running setup. The wizard uses Adobe Creative Cloud's Unified Plugin Installer and prepares Node.js, FFmpeg, FFprobe, and yt-dlp. See the [Windows setup guide](docs/INSTALLATION.md) for manual installation and troubleshooting.
 
 ## Features
 
-- Search YouTube videos and music with official YouTube Data API v3 results and pagination.
-- Preview videos in YouTube's embedded player, fall back to a local yt-dlp stream when embedding is blocked, and set In/Out points directly in the player.
-- Export a selected range as H.264/AAC MP4 or MP3, with visible download progress and completion notices.
-- Automatically import completed exports into the Premiere project's `LocalStream Downloads` bin, ready to drag onto the timeline.
-- Browse local media through the same clip range and export workflow.
-- Choose maximum video quality, enable formats that need encoding, optionally use local browser cookies when YouTube sign-in is required, and change the download folder.
-- Keep the backend, settings, download queue, and processing on the local computer.
+- Search YouTube videos or music with official Data API results. Channel and playlist entries are excluded.
+- Preview a result, set In and Out points in the player, and export the selected range as H.264/AAC MP4 or MP3.
+- Open local media and use the same trimming and export controls.
+- Follow download progress, browse recent exports with thumbnails, and drag finished files into a Premiere timeline or Project panel.
+- Automatically add completed exports to the active project's `LocalStream Downloads` bin.
+- Set maximum quality, output folder, and optional browser-session access in Settings.
 
-## Screenshots
+## The panel
 
-### Search YouTube
+### Find a video
 
-![YouTube search results with download controls](docs/screenshots/search-results.png)
+Search results show a thumbnail, duration, channel, view count, and a quick download action.
 
-### Preview and set a clip range
+![Local Stream video search results in Premiere Pro](docs/screenshots/search-results.png)
 
-![Player with integrated clip range and sticky download controls](docs/screenshots/clip-editor.png)
+### Preview and trim
 
-### Track completed exports
+Set In and Out points on the player, then download the selected video or audio range.
 
-![Completed downloads ready for the Premiere timeline](docs/screenshots/downloads.png)
+![Video preview with clip range controls and download actions](docs/screenshots/clip-editor.png)
 
-### Configure quality and download behavior
+### Use recent downloads
 
-![Local Stream download quality and processing settings](docs/screenshots/settings-public.png)
+Recent Downloads keeps finished files in a compact list with thumbnails. Drag a file into Premiere or open its options menu.
 
-### Add your own YouTube API key
+![Recent Downloads with video thumbnails and drag-ready files](docs/screenshots/downloads.png)
 
-![YouTube Data API key settings](docs/screenshots/settings-key-public.png)
+<details>
+<summary>More panel screenshots</summary>
+
+### Browse before searching
+
+![Empty Browse view with local media action](docs/screenshots/browse-empty.png)
+
+### Configure downloads
+
+![Settings for video quality, encoding, browser session, and output location](docs/screenshots/settings-public.png)
+
+### Configure the API key and preview behavior
+
+![Settings for preview behavior and YouTube Data API key](docs/screenshots/settings-key-public.png)
+
+</details>
 
 ## Requirements
 
@@ -55,7 +70,7 @@ The wizard installs the signed Premiere panel through Adobe Creative Cloud's Uni
 
 ## Quick start: install with the setup wizard
 
-1. Download and run `Local-Stream-Setup-0.2.1.exe` with Premiere closed.
+1. Download and run `Local-Stream-Setup-0.2.2.exe` with Premiere closed.
 2. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
 3. Open Settings, paste your YouTube Data API v3 key, and save.
 4. Search, select a result, set the range, and choose **Download video** or **Download audio**.

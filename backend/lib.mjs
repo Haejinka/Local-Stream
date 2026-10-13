@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-export const APP_VERSION = '0.2.1';
+export const APP_VERSION = '0.2.2';
 export const DEFAULT_PORT = 47831;
 export const CEP_EXTENSION_ID = 'com.localstream.premiere';
 export const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.m4v', '.webm', '.avi', '.mts', '.m2ts']);
@@ -190,6 +190,10 @@ export function parseIsoDuration(value) {
   const match = /^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(value || '');
   if (!match) return null;
   return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+}
+
+export function isYouTubeVideoSearchItem(item) {
+  return item?.id?.kind === 'youtube#video' && /^[A-Za-z0-9_-]{11}$/.test(item.id.videoId || '');
 }
 
 export function decodeHtmlEntities(value) {

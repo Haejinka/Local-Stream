@@ -35,6 +35,16 @@ const state = {
   audioContext: null,
   projectImportAttempts: new Set(),
   observedJobStatuses: new Map(),
+  activeFileDrag: false,
+  fileDragImage: null,
+  latestJobs: [],
+  jobsRenderSignature: '',
+  showAllDownloads: false,
+  thumbnailUrls: new Map(),
+  thumbnailPending: new Set(),
+  thumbnailQueue: [],
+  thumbnailLoading: 0,
+  thumbnailRetryAfter: new Map(),
   jobsPrimed: false,
   initialized: false,
   isSearching: false,
@@ -232,6 +242,8 @@ function updateSettingsHints() {
 function openSettings() {
   state.settingsReturnFocus = document.activeElement;
   el['settings-panel'].classList.remove('is-hidden');
+  el['settings-toggle'].classList.add('is-active');
+  el['settings-toggle'].setAttribute('aria-expanded', 'true');
   el['page-content'].inert = true;
   el['setting-clear-youtube'].checked = false;
   el['setting-youtube-key'].value = '';
@@ -243,6 +255,8 @@ function openSettings() {
 
 function closeSettings() {
   el['settings-panel'].classList.add('is-hidden');
+  el['settings-toggle'].classList.remove('is-active');
+  el['settings-toggle'].setAttribute('aria-expanded', 'false');
   el['page-content'].inert = false;
   if (state.settingsReturnFocus?.isConnected) state.settingsReturnFocus.focus();
   state.settingsReturnFocus = null;
@@ -437,6 +451,7 @@ function updatePreviewAspectRatio() {
 }
 
 function showEditor() {
+  updateNavigation(false);
   document.body.classList.add('editor-open');
   el['search-area'].classList.add('is-hidden');
   el['browser-section'].classList.add('is-hidden');
@@ -447,6 +462,7 @@ function showEditor() {
 }
 
 function returnToResults() {
+  updateNavigation(false);
   document.body.classList.remove('editor-open');
   state.previewLoop = false;
   el['source-video'].pause();
@@ -461,6 +477,7 @@ function returnToResults() {
 }
 
 function showHistory() {
+  updateNavigation(true);
   document.body.classList.remove('editor-open');
   state.previewLoop = false;
   el['source-video'].pause();
@@ -474,10 +491,18 @@ function showHistory() {
   el['jobs-heading'].focus();
 }
 
+function updateNavigation(inDownloads) {
+  el['history-toggle'].classList.toggle('is-active', inDownloads);
+  if (inDownloads) el['history-toggle'].setAttribute('aria-current', 'page');
+  else el['history-toggle'].removeAttribute('aria-current');
+  el['mode-video'].classList.toggle('is-selected', !inDownloads && state.searchMode === 'video');
+  el['mode-music'].classList.toggle('is-selected', !inDownloads && state.searchMode === 'music');
+}
+
 function setSearchMode(mode) {
   state.searchMode = mode === 'music' ? 'music' : 'video';
-  el['mode-video'].classList.toggle('is-selected', state.searchMode === 'video');
-  el['mode-music'].classList.toggle('is-selected', state.searchMode === 'music');
+  if (el['browser-section'].classList.contains('is-hidden')) returnToResults();
+  updateNavigation(false);
   el['mode-video'].setAttribute('aria-pressed', String(state.searchMode === 'video'));
   el['mode-music'].setAttribute('aria-pressed', String(state.searchMode === 'music'));
   el['browser-subtitle'].textContent = state.searchMode === 'music' ? 'YouTube music search' : 'YouTube video search';
@@ -927,7 +952,9 @@ async function searchYouTube({ loadMore = false } = {}) {
       mode: state.searchMode,
       ...(loadMore ? { pageToken: state.nextPageToken } : {})
     }));
-    const results = response.results || [];
+    const results = (Array.isArray(response.results) ? response.results : []).filter((item) =>
+      item && typeof item.id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(item.id)
+    );
     state.nextPageToken = response.nextPageToken || '';
     state.loadedResultCount = loadMore ? state.loadedResultCount + results.length : results.length;
     renderResults(results, { append: loadMore });
@@ -1140,7 +1167,12 @@ async function handleJobAction(action, id) {
     } else if (action === 'cancel') {
       await api(`/api/jobs/${id}/cancel`, jsonOptions({})); await pollJobs();
     } else if (action === 'remove') {
-      await api(`/api/jobs/${id}`, { method: 'DELETE' }); await pollJobs();
+      await api(`/api/jobs/${id}`, { method: 'DELETE' });
+      const thumbnailUrl = state.thumbnailUrls.get(id);
+      if (thumbnailUrl) URL.revokeObjectURL(thumbnailUrl);
+      state.thumbnailUrls.delete(id);
+      await pollJobs();
+      showToast('Removed from Recent Downloads. The media file is still on disk.');
     }
   } catch (error) { showToast(error.message, true); }
 }
@@ -1152,39 +1184,176 @@ function appendAction(container, text, action, id, extraClass = '') {
   container.appendChild(button);
 }
 
+function queueThumbnail(id) {
+  if (state.thumbnailUrls.has(id) || state.thumbnailPending.has(id) || Date.now() < (state.thumbnailRetryAfter.get(id) || 0)) return;
+  state.thumbnailPending.add(id);
+  state.thumbnailQueue.push(id);
+  drainThumbnailQueue();
+}
+
+function localVideoThumbnail(job) {
+  const video = document.createElement('video');
+  video.className = 'job-thumbnail-video';
+  video.src = fileUrlFromPath(job.outputPath);
+  video.preload = 'metadata';
+  video.muted = true;
+  video.playsInline = true;
+  video.setAttribute('aria-hidden', 'true');
+  video.addEventListener('loadedmetadata', () => {
+    if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(1, video.duration / 3);
+  }, { once: true });
+  video.addEventListener('error', () => video.remove(), { once: true });
+  return video;
+}
+
+function drainThumbnailQueue() {
+  while (state.thumbnailLoading < 2 && state.thumbnailQueue.length) {
+    const id = state.thumbnailQueue.shift();
+    state.thumbnailLoading += 1;
+    void (async () => {
+      try {
+        const response = await fetch(`${state.apiBase}/api/jobs/${id}/thumbnail`, {
+          headers: { Authorization: `Bearer ${state.token}` }, credentials: 'omit', cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(`Thumbnail unavailable (${response.status}).`);
+        const url = URL.createObjectURL(await response.blob());
+        state.thumbnailUrls.set(id, url);
+        for (const image of el['jobs-list'].querySelectorAll('img[data-thumbnail-id]')) {
+          if (image.dataset.thumbnailId === id) image.src = url;
+        }
+      } catch {
+        state.thumbnailRetryAfter.set(id, Date.now() + 30_000);
+        const job = state.latestJobs.find((item) => item.id === id);
+        if (job?.outputPath) {
+          for (const image of el['jobs-list'].querySelectorAll('img[data-thumbnail-id]')) {
+            if (image.dataset.thumbnailId === id) image.replaceWith(localVideoThumbnail(job));
+          }
+        }
+      } finally {
+        state.thumbnailPending.delete(id);
+        state.thumbnailLoading -= 1;
+        drainThumbnailQueue();
+      }
+    })();
+  }
+}
+
+function createFileDragImage(filePath, format) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 288;
+  canvas.height = 48;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+
+  context.fillStyle = '#272727';
+  context.strokeStyle = '#777';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(8, 1);
+  context.lineTo(280, 1);
+  context.quadraticCurveTo(287, 1, 287, 8);
+  context.lineTo(287, 40);
+  context.quadraticCurveTo(287, 47, 280, 47);
+  context.lineTo(8, 47);
+  context.quadraticCurveTo(1, 47, 1, 40);
+  context.lineTo(1, 8);
+  context.quadraticCurveTo(1, 1, 8, 1);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = '#3a3156';
+  context.fillRect(10, 11, 40, 26);
+  context.fillStyle = '#e4d9ff';
+  context.font = 'bold 11px Arial, sans-serif';
+  context.textAlign = 'center';
+  context.fillText(format.toUpperCase(), 30, 28);
+
+  const fileName = String(filePath).split(/[\\/]/).pop() || 'Media file';
+  context.fillStyle = '#f4f4f4';
+  context.font = '12px Arial, sans-serif';
+  context.textAlign = 'left';
+  let label = fileName;
+  while (label.length > 1 && context.measureText(label).width > 216) label = label.slice(0, -1);
+  if (label !== fileName) label = `${label.slice(0, -1)}…`;
+  context.fillText(label, 62, 28);
+  return canvas;
+}
+
 function renderJobs(jobs) {
+  state.latestJobs = jobs;
+  if (state.activeFileDrag) return;
+  const signature = JSON.stringify([state.showAllDownloads, jobs]);
+  if (signature === state.jobsRenderSignature) return;
+  state.jobsRenderSignature = signature;
+  const sortedJobs = [...jobs].sort((a, b) => Date.parse(b.completedAt || b.updatedAt || b.createdAt) - Date.parse(a.completedAt || a.updatedAt || a.createdAt));
+  const visibleJobs = state.showAllDownloads ? sortedJobs : sortedJobs.slice(0, 12);
   renderDownloadProgress(jobs);
   el['jobs-list'].replaceChildren();
   el['job-count'].textContent = String(jobs.length);
   if (!jobs.length) {
-    const empty = document.createElement('div'); empty.className = 'empty-jobs'; empty.textContent = 'Your exports will appear here.';
+    const empty = document.createElement('div'); empty.className = 'empty-jobs'; empty.textContent = 'Your recent exports will appear here.';
     el['jobs-list'].appendChild(empty); return;
   }
-  for (const job of jobs) {
+  for (const job of visibleJobs) {
     const card = document.createElement('article'); card.className = 'job-card';
+    if (job.status === 'completed' && job.outputPath) {
+      card.classList.add('is-draggable');
+      card.draggable = true;
+      card.dataset.filePath = job.outputPath;
+      card.title = 'Drag this media file to a Premiere timeline or Project panel';
+    }
     const head = document.createElement('div'); head.className = 'job-head';
+    const media = document.createElement('div'); media.className = 'job-thumbnail';
+    if (job.format === 'mp4' && job.status === 'completed' && job.outputPath) {
+      const cachedUrl = state.thumbnailUrls.get(job.id);
+      if (!cachedUrl && Date.now() < (state.thumbnailRetryAfter.get(job.id) || 0)) {
+        media.appendChild(localVideoThumbnail(job));
+      } else {
+        const image = document.createElement('img');
+        image.alt = '';
+        image.dataset.thumbnailId = job.id;
+        if (cachedUrl) image.src = cachedUrl;
+        else queueThumbnail(job.id);
+        media.appendChild(image);
+      }
+    } else if (job.format === 'mp3') {
+      media.classList.add('is-audio');
+      const note = document.createElement('span'); note.className = 'job-audio-symbol'; note.setAttribute('aria-hidden', 'true'); note.textContent = '♪';
+      media.appendChild(note);
+    }
     const format = document.createElement('span'); format.className = 'job-format'; format.textContent = job.format.toUpperCase();
+    media.appendChild(format);
     const copy = document.createElement('div'); copy.className = 'job-copy';
-    const title = document.createElement('div'); title.className = 'job-title'; title.textContent = job.title || job.outputName || 'Untitled export';
+    const title = document.createElement('div'); title.className = 'job-title'; title.textContent = job.title || job.outputName || 'Untitled export'; title.title = title.textContent;
     const jobSourceLabel = job.sourceType === 'youtube' ? 'YouTube' : 'Local file';
-    const subtitle = document.createElement('div'); subtitle.className = 'job-subtitle'; subtitle.textContent = `${formatTime(job.selectedDuration || 0)} · ${job.outputBytes ? humanBytes(job.outputBytes) : jobSourceLabel}`;
+    const timestamp = job.completedAt || job.createdAt;
+    const when = timestamp ? new Date(timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    const subtitle = document.createElement('div'); subtitle.className = 'job-subtitle'; subtitle.textContent = `${formatTime(job.selectedDuration || 0)} · ${job.outputBytes ? humanBytes(job.outputBytes) : jobSourceLabel}${when ? ` · ${when}` : ''}`;
     copy.append(title, subtitle);
     const status = document.createElement('span'); status.className = `job-state ${job.status}`;
     if (job.status === 'completed') {
-      status.textContent = job.projectImportStatus === 'added' ? 'Ready for timeline' : job.projectImportStatus === 'pending' ? 'Adding to project…' : 'Downloaded';
+      status.textContent = job.outputPath ? 'Ready to drag' : 'Downloaded';
     } else if (job.status === 'processing' || job.status === 'downloading') {
       status.textContent = `${job.status === 'processing' ? 'Processing' : 'Downloading'} ${job.progress || 0}%`;
     } else {
       status.textContent = job.status === 'queued' ? 'Queued' : job.status === 'failed' ? 'Failed' : 'Cancelled';
     }
-    head.append(format, copy, status);
+    copy.appendChild(status);
+    head.append(media, copy);
+    if (!['queued', 'processing', 'downloading'].includes(job.status)) {
+      const menu = document.createElement('details'); menu.className = 'job-menu';
+      const toggle = document.createElement('summary'); toggle.className = 'job-menu-toggle';
+      toggle.setAttribute('aria-label', `More options for ${title.textContent}`);
+      toggle.title = 'More options';
+      toggle.innerHTML = '<svg class="ui-icon ui-icon-more" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg>';
+      const options = document.createElement('div'); options.className = 'job-menu-popover';
+      appendAction(options, 'Remove from Recent Downloads', 'remove', job.id);
+      menu.append(toggle, options);
+      head.appendChild(menu);
+    }
     card.appendChild(head);
     if (job.status === 'completed') {
-      const placement = document.createElement('div'); placement.className = 'job-placement';
-      if (job.projectImportStatus === 'added') placement.textContent = 'Added to LocalStream Downloads · drag it to the timeline.';
-      else if (job.projectImportStatus === 'pending') placement.textContent = 'Download complete · adding it to LocalStream Downloads…';
-      else placement.textContent = 'Download complete · add it to LocalStream Downloads to use it on the timeline.';
-      card.appendChild(placement);
       if (job.projectImportStatus === 'failed' && job.projectImportError) {
         const importError = document.createElement('div'); importError.className = 'job-error';
         importError.textContent = `Could not add to Premiere: ${job.projectImportError}`;
@@ -1199,15 +1368,21 @@ function renderJobs(jobs) {
     const actions = document.createElement('div'); actions.className = 'job-actions';
     if (job.status === 'completed') {
       if (!['added', 'pending'].includes(job.projectImportStatus)) appendAction(actions, 'Add to project', 'add-to-project', job.id, 'import-action');
-      appendAction(actions, 'Remove', 'remove', job.id);
     } else if (job.status === 'queued' || job.status === 'processing' || job.status === 'downloading') {
       appendAction(actions, 'Cancel', 'cancel', job.id);
     } else {
       appendAction(actions, 'Retry', 'retry', job.id);
-      appendAction(actions, 'Remove', 'remove', job.id);
     }
-    card.appendChild(actions);
+    if (actions.childElementCount) card.appendChild(actions);
     el['jobs-list'].appendChild(card);
+  }
+  if (jobs.length > 12) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'quiet-button older-downloads';
+    more.dataset.action = state.showAllDownloads ? 'show-recent' : 'show-older';
+    more.textContent = state.showAllDownloads ? 'Show recent only' : `Show older downloads (${jobs.length - 12})`;
+    el['jobs-list'].appendChild(more);
   }
 }
 
@@ -1256,7 +1431,7 @@ async function pollJobs() {
     for (const job of newlyCompleted) {
       const importFailed = job.projectImportStatus === 'failed';
       const message = importFailed
-        ? `Download complete, but it could not be added to Premiere: ${job.projectImportError || 'Open Downloads to retry.'}`
+        ? `Download complete, but it could not be added to Premiere: ${job.projectImportError || 'Open Recent Downloads to retry.'}`
         : 'Download complete. Added to LocalStream Downloads and ready for the timeline.';
       showToast(message, importFailed, { duration: importFailed ? 8000 : 6000 });
       playCompletionBell();
@@ -1406,8 +1581,72 @@ function bindEvents() {
     state.start = 0; state.end = state.duration; renderTimeline(); closeClipMenu();
   });
   el['jobs-list'].addEventListener('click', (event) => {
+    const menuToggle = event.target.closest('.job-menu-toggle');
+    if (menuToggle) {
+      for (const menu of el['jobs-list'].querySelectorAll('.job-menu[open]')) {
+        if (menu !== menuToggle.parentElement) menu.open = false;
+      }
+    }
     const button = event.target.closest('button[data-action]');
-    if (button) void handleJobAction(button.dataset.action, button.dataset.id);
+    if (!button) return;
+    if (button.dataset.action === 'show-older' || button.dataset.action === 'show-recent') {
+      state.showAllDownloads = button.dataset.action === 'show-older';
+      renderJobs(state.latestJobs);
+    } else void handleJobAction(button.dataset.action, button.dataset.id);
+  });
+  el['jobs-list'].addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('button, .job-menu')) return;
+    const card = event.target.closest('.job-card.is-draggable');
+    if (card) card.draggable = false;
+  });
+  document.addEventListener('pointerup', () => {
+    for (const card of el['jobs-list'].querySelectorAll('.job-card.is-draggable')) card.draggable = true;
+  });
+  document.addEventListener('pointerdown', (event) => {
+    for (const menu of el['jobs-list'].querySelectorAll('.job-menu[open]')) {
+      if (!menu.contains(event.target)) menu.open = false;
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const menu = el['jobs-list'].querySelector('.job-menu[open]');
+    if (!menu) return;
+    menu.open = false;
+    menu.querySelector('summary').focus();
+    event.preventDefault();
+  });
+  el['jobs-list'].addEventListener('dragstart', (event) => {
+    const card = event.target.closest('.job-card.is-draggable');
+    if (!card || event.target.closest('button, .job-menu') || !event.dataTransfer) {
+      event.preventDefault();
+      return;
+    }
+    // CEP turns this file path into a native drag that Premiere can accept.
+    event.dataTransfer.setData('com.adobe.cep.dnd.file.0', card.dataset.filePath);
+    event.dataTransfer.effectAllowed = 'copy';
+    if (typeof event.dataTransfer.setDragImage === 'function') {
+      try {
+        if (state.fileDragImage) state.fileDragImage.remove();
+        state.fileDragImage = createFileDragImage(card.dataset.filePath, card.querySelector('.job-format').textContent);
+        if (state.fileDragImage) {
+          state.fileDragImage.style.cssText = 'position:fixed;left:-1000px;top:0;pointer-events:none';
+          document.body.appendChild(state.fileDragImage);
+          event.dataTransfer.setDragImage(state.fileDragImage, 18, 24);
+        }
+      } catch {
+        if (state.fileDragImage) state.fileDragImage.remove();
+        state.fileDragImage = null;
+      }
+    }
+    state.activeFileDrag = true;
+    card.classList.add('is-dragging');
+  });
+  el['jobs-list'].addEventListener('dragend', () => {
+    state.activeFileDrag = false;
+    if (state.fileDragImage) state.fileDragImage.remove();
+    state.fileDragImage = null;
+    state.jobsRenderSignature = '';
+    renderJobs(state.latestJobs);
   });
 }
 
@@ -1440,7 +1679,7 @@ function initialize() {
   state.initialized = true;
   if (typeof CSInterface === 'function') state.csInterface = new CSInterface();
   cacheElements();
-  el['footer-version'].textContent = '0.2.1 · Premiere CEP';
+  el['footer-version'].textContent = '0.2.2 · Premiere CEP';
   bindEvents();
   renderTimeline();
   void connectBackend();

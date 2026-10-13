@@ -6,7 +6,7 @@ import path from 'node:path';
 import {
   APP_VERSION, AUDIO_EXTENSIONS, DEFAULT_PORT, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS,
   appDataDir, atomicWriteJson, defaultSettings, formatTimestamp, getMediaInfo,
-  decodeHtmlEntities, parseIsoDuration, readJson, resolveBinary, safeSettings, sanitizeFilename,
+  decodeHtmlEntities, isYouTubeVideoSearchItem, parseIsoDuration, readJson, resolveBinary, safeSettings, sanitizeFilename,
   toPublicJob, validateTrim, runProcess
 } from './lib.mjs';
 
@@ -14,6 +14,7 @@ const dataDir = appDataDir();
 const settingsFile = path.join(dataDir, 'settings.json');
 const tokenFile = path.join(dataDir, 'auth-token.txt');
 const historyFile = path.join(dataDir, 'jobs.json');
+const thumbnailDir = path.join(dataDir, 'thumbnails');
 const toolPathDir = path.join(dataDir, 'tools');
 const port = Number(process.env.LOCAL_STREAM_PORT || DEFAULT_PORT);
 let settings = safeSettings(await readJson(settingsFile, defaultSettings()));
@@ -41,6 +42,7 @@ const queue = [];
 let activeId = null;
 let activeController = null;
 const recentRequests = new Map();
+const thumbnailTasks = new Map();
 const persisted = await readJson(historyFile, []);
 for (const job of Array.isArray(persisted) ? persisted : []) {
   if (!job?.id) continue;
@@ -82,6 +84,17 @@ function html(res, status, value) {
     'X-Content-Type-Options': 'nosniff'
   });
   res.end(payload);
+}
+
+function jpeg(res, value) {
+  res.writeHead(200, {
+    'Content-Type': 'image/jpeg',
+    'Content-Length': value.length,
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  res.end(value);
 }
 
 function youtubePreviewHtml(videoId, origin) {
@@ -169,7 +182,10 @@ async function pruneHistory() {
   if (!settings.cleanupDays) return;
   const cutoff = Date.now() - settings.cleanupDays * 86_400_000;
   for (const [id, job] of jobs) {
-    if (Date.parse(job.updatedAt || job.createdAt) < cutoff && !['queued', 'processing', 'downloading'].includes(job.status)) jobs.delete(id);
+    if (Date.parse(job.updatedAt || job.createdAt) < cutoff && !['queued', 'processing', 'downloading'].includes(job.status)) {
+      jobs.delete(id);
+      await fs.rm(path.join(thumbnailDir, `${id}.jpg`), { force: true }).catch(() => {});
+    }
   }
 }
 
@@ -226,6 +242,38 @@ async function makeOutputPath(job) {
       throw error;
     }
   }
+}
+
+async function thumbnailForJob(job) {
+  if (job.status !== 'completed' || job.format !== 'mp4' || !job.outputPath) {
+    throw Object.assign(new Error('This download has no video thumbnail.'), { status: 404 });
+  }
+  try { await fs.access(job.outputPath); }
+  catch { throw Object.assign(new Error('The downloaded video is no longer on disk.'), { status: 404 }); }
+  const thumbnailPath = path.join(thumbnailDir, `${job.id}.jpg`);
+  try { return await fs.readFile(thumbnailPath); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+
+  if (!thumbnailTasks.has(job.id)) {
+    const task = (async () => {
+      await fs.mkdir(thumbnailDir, { recursive: true });
+      const temporaryPath = path.join(thumbnailDir, `${job.id}.${crypto.randomUUID()}.jpg`);
+      const frameTime = Math.max(0, Math.min(1, (Number(job.verifiedDuration) || 1) / 3));
+      try {
+        await runProcess(safeBinary('ffmpeg'), [
+          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+          '-ss', String(frameTime), '-i', job.outputPath,
+          '-frames:v', '1', '-vf', 'scale=320:-2', '-q:v', '4', temporaryPath
+        ], { timeoutMs: 30_000 });
+        await fs.rename(temporaryPath, thumbnailPath);
+        return await fs.readFile(thumbnailPath);
+      } finally {
+        await fs.rm(temporaryPath, { force: true }).catch(() => {});
+      }
+    })().finally(() => thumbnailTasks.delete(job.id));
+    thumbnailTasks.set(job.id, task);
+  }
+  return thumbnailTasks.get(job.id);
 }
 
 async function startJob(job) {
@@ -473,7 +521,8 @@ async function searchYouTube(query, mode = 'video', pageToken = '') {
   const response = await fetch(searchUrl, { signal: AbortSignal.timeout(12_000) });
   const search = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(search.error?.message || `YouTube search returned ${response.status}.`), { status: 502 });
-  const ids = (search.items || []).map((item) => item.id?.videoId).filter(Boolean);
+  const videoItems = (search.items || []).filter(isYouTubeVideoSearchItem);
+  const ids = [...new Set(videoItems.map((item) => item.id.videoId))];
   if (!ids.length) return { results: [], nextPageToken: search.nextPageToken || '' };
   const detailUrl = new URL('https://www.googleapis.com/youtube/v3/videos');
   detailUrl.search = new URLSearchParams({ part: 'contentDetails,statistics', id: ids.join(','), key: settings.youtubeApiKey });
@@ -481,11 +530,11 @@ async function searchYouTube(query, mode = 'video', pageToken = '') {
   const details = await detailResponse.json().catch(() => ({}));
   if (!detailResponse.ok) throw Object.assign(new Error(details.error?.message || `YouTube details returned ${detailResponse.status}.`), { status: 502 });
   const byId = new Map((details.items || []).map((item) => [item.id, item]));
-  const results = (search.items || []).map((item) => {
+  const results = videoItems.filter((item) => byId.has(item.id.videoId)).map((item) => {
     const snippet = item.snippet || {};
-    const detail = byId.get(item.id?.videoId);
+    const detail = byId.get(item.id.videoId);
     return {
-      id: item.id?.videoId,
+      id: item.id.videoId,
       title: decodeHtmlEntities(snippet.title || 'Untitled video'),
       channel: snippet.channelTitle || '',
       description: snippet.description || '',
@@ -578,11 +627,14 @@ const server = http.createServer(async (req, res) => {
       if (!streamUrl) throw Object.assign(new Error('yt-dlp did not return a playable preview stream.'), { status: 502 });
       return json(res, 200, { url: streamUrl });
     }
-    const jobRoute = /^\/api\/jobs\/([0-9a-f-]{36})(?:\/(retry|cancel|project-import))?$/.exec(url.pathname);
+    const jobRoute = /^\/api\/jobs\/([0-9a-f-]{36})(?:\/(retry|cancel|project-import|thumbnail))?$/.exec(url.pathname);
     if (jobRoute) {
       const [, id, action] = jobRoute;
       const job = jobs.get(id);
       if (!job) return replyError(res, 404, 'Job not found.');
+      if (action === 'thumbnail' && req.method === 'GET') {
+        return jpeg(res, await thumbnailForJob(job));
+      }
       if (action === 'retry' && req.method === 'POST') {
         if (!['failed', 'cancelled'].includes(job.status)) return replyError(res, 409, 'Only failed or cancelled jobs can be retried.');
         if (job.sourceType === 'youtube') job.youtubeBrowserSession = Boolean(settings.youtubeBrowserSession);
@@ -614,6 +666,7 @@ const server = http.createServer(async (req, res) => {
       if (!action && req.method === 'DELETE') {
         if (['queued', 'processing', 'downloading'].includes(job.status)) return replyError(res, 409, 'Cancel the active job before removing it from history.');
         jobs.delete(id); await persistJobs();
+        await fs.rm(path.join(thumbnailDir, `${id}.jpg`), { force: true }).catch(() => {});
         return json(res, 200, { removed: true });
       }
     }

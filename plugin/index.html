@@ -10,21 +10,23 @@
     <div class="app-shell">
       <div id="page-content">
         <header class="topbar">
+          <nav class="primary-nav" aria-label="Panel navigation">
           <div class="mode-switch" role="group" aria-label="Search category">
-            <button id="mode-video" class="mode-button is-selected" type="button" aria-pressed="true" title="Search videos" aria-label="Search videos">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"></rect><path d="m15 10 6-3v10l-6-3z"></path></svg>
+            <button id="mode-video" class="mode-button is-selected" type="button" aria-pressed="true" title="Search videos" aria-label="Videos">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"></rect><path d="m15 10 6-3v10l-6-3z"></path></svg><span class="nav-label">Videos</span>
             </button>
-            <button id="mode-music" class="mode-button" type="button" aria-pressed="false" title="Search music" aria-label="Search music">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><path d="m9 9 12-2"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            <button id="mode-music" class="mode-button" type="button" aria-pressed="false" title="Search music" aria-label="Music">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><path d="m9 9 12-2"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg><span class="nav-label">Music</span>
             </button>
           </div>
+          <button class="nav-button" id="history-toggle" type="button" aria-label="Downloads" title="Recent downloads">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg><span class="nav-label">Downloads</span>
+          </button>
+          </nav>
           <div class="topbar-utilities">
             <div class="backend-state" id="backend-state" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend offline</span></div>
-            <button class="icon-button topbar-icon" id="history-toggle" type="button" aria-label="Show downloads" title="Downloads">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>
-            </button>
-            <button class="icon-button topbar-icon" id="settings-toggle" type="button" aria-label="Open settings" title="Settings">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.72l-.18 1.29a8 8 0 0 0-1.73 1l-1.22-.5a2 2 0 0 0-2.47.87l-.22.38a2 2 0 0 0 .64 2.58l1.04.79a8 8 0 0 0 0 2l-1.04.79a2 2 0 0 0-.64 2.58l.22.38a2 2 0 0 0 2.47.87l1.22-.5a8 8 0 0 0 1.73 1l.18 1.29A2 2 0 0 0 11.78 22h.44a2 2 0 0 0 2-1.72l.18-1.29a8 8 0 0 0 1.73-1l1.22.5a2 2 0 0 0 2.47-.87l.22-.38a2 2 0 0 0-.64-2.58l-1.04-.79a8 8 0 0 0 0-2l1.04-.79a2 2 0 0 0 .64-2.58l-.22-.38a2 2 0 0 0-2.47-.87l-1.22.5a8 8 0 0 0-1.73-1l-.18-1.29A2 2 0 0 0 12.22 2Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <button class="icon-button topbar-icon" id="settings-toggle" type="button" aria-label="Open settings" aria-controls="settings-panel" aria-expanded="false" title="Settings">
+              <svg class="ui-icon settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.79 4.24 10.11 3.82 10.02 1.79h3.96l-.09 2.03 1.32.42 1.24.64 1.37-1.5 2.8 2.8-1.5 1.37.64 1.24.42 1.32 2.03-.09v3.96l-2.03-.09-.42 1.32-.64 1.24 1.5 1.37-2.8 2.8-1.37-1.5-1.24.64-1.32.42.09 2.03h-3.96l.09-2.03-1.32-.42-1.24-.64-1.37 1.5-2.8-2.8 1.5-1.37-.64-1.24-.42-1.32-2.03.09v-3.96l2.03.09.42-1.32.64-1.24-1.5-1.37 2.8-2.8 1.37 1.5 1.24-.64Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
             </button>
           </div>
         </header>
@@ -155,7 +157,7 @@
 
           <section id="jobs-section" class="jobs-section is-hidden" aria-labelledby="jobs-heading">
             <div class="section-heading">
-              <div><h2 id="jobs-heading" tabindex="-1">Downloads</h2><p>Finished exports are added to the LocalStream Downloads bin, ready for your timeline.</p></div>
+              <div><h2 id="jobs-heading" tabindex="-1">Recent Downloads</h2><p>Your newest exports appear here. Drag a finished file into Premiere.</p></div>
               <div class="editor-heading-actions"><span class="section-count" id="job-count">0</span><button id="back-to-browse" class="quiet-button compact-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg> Results</button></div>
             </div>
             <div id="jobs-list" class="jobs-list">
@@ -163,7 +165,7 @@
             </div>
           </section>
 
-          <footer class="footer-row"><span>Local processing</span><span id="footer-version">0.2.1</span></footer>
+          <footer class="footer-row"><span>Local processing</span><span id="footer-version">0.2.2</span></footer>
         </main>
       </div>
 

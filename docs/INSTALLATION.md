@@ -4,7 +4,7 @@ Local Stream supports Adobe Premiere Pro 25.6 or later with CEP 12. For regular 
 
 ## Option A: setup wizard (recommended)
 
-1. Download and run `Local-Stream-Setup-0.2.1.exe` from the repository's [latest main branch](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe).
+1. Download and run `Local-Stream-Setup-0.2.2.exe` from the repository's [latest main branch](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.2.exe).
 2. Keep Premiere Pro closed until setup finishes.
 3. The wizard uses Adobe Creative Cloud's Unified Plugin Installer to install the signed ZXP and provisions Node.js, FFmpeg, FFprobe, and yt-dlp if they are not already available.
 4. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
@@ -14,7 +14,7 @@ The wizard needs the Creative Cloud desktop app and an internet connection. Miss
 
 ## Option B: install the ZXP manually
 
-1. Download [the signed ZXP](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp).
+1. Download [the signed ZXP](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.2.zxp).
 2. Install it using Adobe's Unified Plugin Installer (`UnifiedPluginInstallerAgent.exe --install <path-to-zxp>`) or a current CEP-compatible ZXP installer.
 3. Run `scripts\setup-tools.cmd` from a local repository checkout to provision Node.js, FFmpeg, FFprobe, and yt-dlp.
 4. Restart Premiere, open **Window → Extensions (Legacy) → Local Stream**, and enter your YouTube API key in Settings.
