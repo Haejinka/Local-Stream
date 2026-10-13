@@ -2,20 +2,18 @@
 
 **A local-first YouTube search, clip editor, and media export panel for Adobe Premiere Pro.**
 
-Search with your own YouTube Data API v3 key, set an In and Out point, and export a Premiere-friendly video or audio file. Local Stream runs its processing backend on your Windows computer and adds completed exports to the `LocalStream Downloads` bin in the active Premiere project.
+Search with your own YouTube Data API v3 key, set an In and Out point, and export a Premiere-friendly video or audio file. Press Enter to search. Local Stream runs its processing backend on your Windows computer and adds completed exports to the `LocalStream Downloads` bin in the active Premiere project.
 
 ## Download
 
-**[Download here — latest ZXP release](https://github.com/Haejinka/Local-Stream/releases/latest)**
+**[Download Local Stream 0.2.1 (ZXP)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp)**
 
 Install the `.zxp` with a CEP-compatible ZXP installer. Then run `scripts\setup-tools.cmd` from the repository to set up the local processing tools, restart Premiere, and enter your own YouTube Data API v3 key in Settings. See the [Windows setup guide](docs/INSTALLATION.md) for the full steps.
-
-![Local Stream search results](docs/screenshots/search-results.png)
 
 ## Features
 
 - Search YouTube videos and music with official YouTube Data API v3 results and pagination.
-- Preview videos in YouTube's embedded player and use the clip editor's draggable In/Out range controls.
+- Preview videos in YouTube's embedded player, fall back to a local yt-dlp stream when embedding is blocked, and set In/Out points directly in the player.
 - Export a selected range as H.264/AAC MP4 or MP3, with visible download progress and completion notices.
 - Automatically import completed exports into the Premiere project's `LocalStream Downloads` bin, ready to drag onto the timeline.
 - Browse local media through the same clip range and export workflow.
@@ -26,19 +24,19 @@ Install the `.zxp` with a CEP-compatible ZXP installer. Then run `scripts\setup-
 
 ### Search YouTube
 
-![Search results with download controls](docs/screenshots/search-results.png)
+![YouTube search results with download controls](docs/screenshots/search-results.png)
 
 ### Preview and set a clip range
 
-![Clip editor and range controls](docs/screenshots/clip-editor.png)
+![Player with integrated clip range and sticky download controls](docs/screenshots/clip-editor.png)
 
 ### Track completed exports
 
-![Downloads ready for the Premiere timeline](docs/screenshots/downloads.png)
+![Completed downloads ready for the Premiere timeline](docs/screenshots/downloads.png)
 
 ### Configure quality and download behavior
 
-![Local Stream settings](docs/screenshots/settings-public.png)
+![Local Stream download quality and processing settings](docs/screenshots/settings-public.png)
 
 ### Add your own YouTube API key
 
@@ -64,7 +62,7 @@ See [the full Windows setup guide](docs/INSTALLATION.md) for API key creation, Z
 
 ## Build a ZXP for distribution
 
-Run `scripts\package-zxp.cmd` (or `powershell -ExecutionPolicy Bypass -File scripts\package-zxp.ps1`). The first run downloads Adobe's ZXPSignCmd and creates a self-signed certificate with a generated password protected by Windows DPAPI in your local app data. The resulting package is written to `dist\Local-Stream-0.2.0.zxp`.
+Run `scripts\package-zxp.cmd` (or `powershell -ExecutionPolicy Bypass -File scripts\package-zxp.ps1`). The first run downloads Adobe's ZXPSignCmd and creates a self-signed certificate with a generated password protected by Windows DPAPI in your local app data. The resulting package is written to `dist\Local-Stream-0.2.1.zxp`.
 
 The private signing certificate and its Windows-user-encrypted password cache are kept outside this repository. A self-signed package may show a publisher trust prompt in a CEP installer. See [distribution notes](docs/DISTRIBUTION.md) before publishing a release.
 

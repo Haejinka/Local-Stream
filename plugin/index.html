@@ -10,16 +10,23 @@
     <div class="app-shell">
       <div id="page-content">
         <header class="topbar">
-          <div class="brand">
-            <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-            <div>
-              <h1 class="brand-name">Local Stream</h1>
-              <div class="brand-subtitle">MEDIA DESK</div>
-            </div>
+          <div class="mode-switch" role="group" aria-label="Search category">
+            <button id="mode-video" class="mode-button is-selected" type="button" aria-pressed="true" title="Search videos" aria-label="Search videos">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"></rect><path d="m15 10 6-3v10l-6-3z"></path></svg>
+            </button>
+            <button id="mode-music" class="mode-button" type="button" aria-pressed="false" title="Search music" aria-label="Search music">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><path d="m9 9 12-2"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            </button>
           </div>
-          <div class="backend-state" id="backend-state" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend offline</span></div>
-          <button class="icon-button" id="history-toggle" type="button" aria-label="Show downloads" title="Downloads">◷</button>
-          <button class="icon-button" id="settings-toggle" type="button" aria-label="Open settings" title="Settings">⚙</button>
+          <div class="topbar-utilities">
+            <div class="backend-state" id="backend-state" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend offline</span></div>
+            <button class="icon-button topbar-icon" id="history-toggle" type="button" aria-label="Show downloads" title="Downloads">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>
+            </button>
+            <button class="icon-button topbar-icon" id="settings-toggle" type="button" aria-label="Open settings" title="Settings">
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.72l-.18 1.29a8 8 0 0 0-1.73 1l-1.22-.5a2 2 0 0 0-2.47.87l-.22.38a2 2 0 0 0 .64 2.58l1.04.79a8 8 0 0 0 0 2l-1.04.79a2 2 0 0 0-.64 2.58l.22.38a2 2 0 0 0 2.47.87l1.22-.5a8 8 0 0 0 1.73 1l.18 1.29A2 2 0 0 0 11.78 22h.44a2 2 0 0 0 2-1.72l.18-1.29a8 8 0 0 0 1.73-1l1.22.5a2 2 0 0 0 2.47-.87l.22-.38a2 2 0 0 0-.64-2.58l-1.04-.79a8 8 0 0 0 0-2l1.04-.79a2 2 0 0 0 .64-2.58l-.22-.38a2 2 0 0 0-2.47-.87l-1.22.5a8 8 0 0 0-1.73-1l-.18-1.29A2 2 0 0 0 12.22 2Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
         </header>
 
         <section id="download-progress" class="download-progress is-hidden" aria-label="Download progress">
@@ -34,18 +41,12 @@
         </section>
 
         <section class="search-area" id="search-area" aria-label="Search or open media">
-          <div class="search-row">
+          <div class="search-row" role="search">
             <label class="sr-only" for="search-input">Search YouTube or paste a video link</label>
             <input id="search-input" name="youtube-search" type="search" placeholder="Search YouTube or paste a URL" autocomplete="off" />
-            <button id="search-button" class="primary-button" type="button">Search</button>
-          </div>
-          <div class="browse-tools" role="group" aria-label="Search category">
-            <button id="mode-video" class="mode-button is-selected" type="button" aria-pressed="true" title="Search videos">▣</button>
-            <button id="mode-music" class="mode-button" type="button" aria-pressed="false" title="Search music">♫</button>
-            <span class="browse-tools-spacer"></span>
           </div>
           <div class="toolbar-row">
-            <button id="open-file" class="quiet-button" type="button"><span class="button-icon" aria-hidden="true">＋</span> Open local media</button>
+            <button id="open-file" class="quiet-button" type="button"><svg class="ui-icon button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Open local media</button>
             <span class="source-hint">Local files are processed on this computer</span>
           </div>
         </section>
@@ -59,65 +60,83 @@
             <ul id="results" class="results-list" aria-label="YouTube search results">
               <li class="empty-state"><span class="empty-icon" aria-hidden="true">⌕</span><strong>Find a video or open local media</strong><span>Add a YouTube API key in Settings to search. Local files work without one.</span></li>
             </ul>
-            <div class="results-pagination"><button id="load-more-results" class="quiet-button is-hidden" type="button">Load more results</button></div>
+            <div class="results-pagination"><button id="load-more-results" class="quiet-button is-hidden" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></svg> Load more results</button></div>
           </section>
 
-          <section id="editor-section" class="editor-section is-hidden" aria-labelledby="editor-heading">
-            <div class="section-heading editor-title-row">
-              <div><h2 id="editor-heading" tabindex="-1">Clip editor</h2><p id="media-title">No local media selected</p></div>
+          <section id="editor-section" class="editor-section is-hidden" aria-labelledby="media-title">
+            <div class="editor-action-row">
               <div class="editor-heading-actions">
-                <button id="back-to-results" class="quiet-button compact-button" type="button">← Results</button>
-                <button id="clear-media" class="quiet-button compact-button" type="button" disabled>Clear</button>
+                <button id="back-to-results" class="quiet-button compact-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg> Results</button>
+                <button id="clear-media" class="quiet-button compact-button" type="button" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg> Clear</button>
               </div>
             </div>
             <div class="preview-frame" id="preview-frame">
-              <video id="source-video" controls playsinline preload="metadata" aria-label="Local media preview"></video>
+              <video id="source-video" playsinline preload="metadata" aria-label="Local media preview"></video>
               <iframe id="youtube-player" class="is-hidden" width="100%" height="100%" src="about:blank" title="YouTube video preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
               <div id="preview-placeholder" class="preview-placeholder">
-                <div class="preview-orbit" aria-hidden="true">▶</div>
+                <div class="preview-orbit" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z" fill="currentColor" stroke="none"></path></svg></div>
                 <strong>Preview</strong>
                 <span>Open a local file or select a YouTube result</span>
               </div>
+              <div id="preview-feedback" class="preview-feedback is-hidden" role="status" aria-live="polite"></div>
+              <div class="trim-card player-controls" id="trim-card" role="group" aria-label="Player and clip range controls">
+                <div class="timeline-topline">
+                  <span>Clip range</span>
+                  <span class="duration-label">Selected <strong id="selected-duration" class="duration-badge">00:00</strong></span>
+                </div>
+                <div class="timeline-wrap">
+                  <div id="timeline" class="timeline" role="group" aria-label="Playback and trim timeline" tabindex="0">
+                    <div class="timeline-base" aria-hidden="true"></div>
+                    <div id="selected-range" class="selected-range" aria-hidden="true"></div>
+                    <div id="playhead" class="playhead" aria-hidden="true"></div>
+                    <button id="start-handle" class="range-handle start-handle" type="button" role="slider" aria-label="Clip start" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
+                    <button id="end-handle" class="range-handle end-handle" type="button" role="slider" aria-label="Clip end" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
+                  </div>
+                </div>
+                <div class="player-control-row">
+                  <div class="player-transport">
+                    <button id="player-play-toggle" class="player-control-button player-play-toggle" type="button" aria-label="Play preview" title="Play" disabled>
+                      <span class="player-icon player-icon-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z" class="solid-icon-part"></path></svg></span>
+                      <span class="player-icon player-icon-pause" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" class="solid-icon-part"></rect><rect x="14" y="4" width="4" height="16" rx="1" class="solid-icon-part"></rect></svg></span>
+                    </button>
+                    <button id="player-mute-toggle" class="player-control-button" type="button" aria-label="Mute preview" title="Mute" disabled>
+                      <span class="player-icon player-icon-volume" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></span>
+                      <span class="player-icon player-icon-muted" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="m16 9 5 6"></path><path d="m21 9-5 6"></path></svg></span>
+                    </button>
+                    <span class="player-time" aria-live="off"><span id="playhead-time">00:00</span><span aria-hidden="true"> / </span><span id="media-duration">00:00</span></span>
+                  </div>
+                  <div class="trim-toolbar">
+                    <div class="trim-control">
+                      <label for="start-input">IN</label>
+                      <input id="start-input" class="time-input" name="clip-start" type="text" inputmode="decimal" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
+                    </div>
+                    <span class="range-separator" aria-hidden="true">—</span>
+                    <div class="trim-control">
+                      <label for="end-input">OUT</label>
+                      <input id="end-input" class="time-input" name="clip-end" type="text" inputmode="decimal" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
+                    </div>
+                    <button id="clip-menu-toggle" class="clip-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Clip range options" title="Clip range options"><svg class="ui-icon ui-icon-more" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5h.01M12 12h.01M12 19h.01"></path></svg></button>
+                    <div id="clip-menu" class="clip-menu is-hidden" role="menu" aria-label="Clip range options">
+                      <button id="set-start" type="button" role="menuitem">Set In point at playhead</button>
+                      <button id="set-end" type="button" role="menuitem">Set Out point at playhead</button>
+                      <button id="preview-clip" type="button" role="menuitem">Preview selected clip</button>
+                      <button id="reset-range" type="button" role="menuitem">Reset range</button>
+                    </div>
+                  </div>
+                  <button id="player-fullscreen-toggle" class="player-control-button player-fullscreen-toggle" type="button" aria-label="Enter full screen" title="Full screen" disabled>
+                    <span class="player-icon player-icon-fullscreen-enter" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M21 16v3a2 2 0 0 1-2 2h-3"></path></svg></span>
+                    <span class="player-icon player-icon-fullscreen-exit" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3v5H3"></path><path d="M21 8h-5V3"></path><path d="M3 16h5v5"></path><path d="M16 21v-5h5"></path></svg></span>
+                  </button>
+                </div>
+                <div id="time-format-note" class="time-format-note">Drag the handles to set the range. Enter a time or use Clip options for precise points.</div>
+              </div>
             </div>
-            <div class="media-meta" id="media-meta"><span>—</span><span>—</span><span>—</span></div>
+            <div class="media-details">
+              <h2 class="media-title" id="media-title" tabindex="-1">No local media selected</h2>
+              <div class="media-meta" id="media-meta"><span>—</span><span>—</span><span>—</span></div>
+            </div>
             <div id="external-player-actions" class="external-player-actions is-hidden">
-              <button id="open-youtube-browser" class="quiet-button compact-button" type="button">Open on YouTube ↗</button>
-            </div>
-
-            <div class="trim-card" id="trim-card" aria-label="Clip range selection">
-              <div class="timeline-topline">
-                <span>CLIP RANGE</span>
-                <span class="duration-label">Selected duration <strong id="selected-duration" class="duration-badge">00:00</strong></span>
-              </div>
-              <div class="timeline-wrap">
-                <div id="timeline" class="timeline" role="group" aria-label="Playback and trim timeline" tabindex="0">
-                  <div class="timeline-base" aria-hidden="true"></div>
-                  <div id="selected-range" class="selected-range" aria-hidden="true"></div>
-                  <div id="playhead" class="playhead" aria-hidden="true"></div>
-                  <button id="start-handle" class="range-handle start-handle" type="button" role="slider" aria-label="Clip start" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
-                  <button id="end-handle" class="range-handle end-handle" type="button" role="slider" aria-label="Clip end" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
-                </div>
-                <div class="timeline-scale"><span>Playhead <strong id="playhead-time">00:00</strong></span><span id="media-duration">00:00</span></div>
-              </div>
-              <div class="trim-toolbar">
-                <div class="trim-control">
-                  <label for="start-input">IN</label>
-                  <input id="start-input" class="time-input" name="clip-start" type="text" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
-                </div>
-                <span class="range-separator" aria-hidden="true">—</span>
-                <div class="trim-control">
-                  <label for="end-input">OUT</label>
-                  <input id="end-input" class="time-input" name="clip-end" type="text" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
-                </div>
-                <button id="clip-menu-toggle" class="clip-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Clip range options" title="Clip range options">•••</button>
-                <div id="clip-menu" class="clip-menu is-hidden" role="menu" aria-label="Clip range options">
-                  <button id="set-start" type="button" role="menuitem">Set In point at playhead</button>
-                  <button id="set-end" type="button" role="menuitem">Set Out point at playhead</button>
-                  <button id="preview-clip" type="button" role="menuitem">Preview selected clip</button>
-                  <button id="reset-range" type="button" role="menuitem">Reset range</button>
-                </div>
-              </div>
-              <div id="time-format-note" class="time-format-note">Drag the handles to set the clip range. Use the menu for precise points.</div>
+              <button id="open-youtube-browser" class="quiet-button compact-button" type="button">Open on YouTube <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2h-5"></path><path d="M10 21H5a2 2 0 0 1-2-2v-5"></path></svg></button>
             </div>
 
             <div class="export-controls">
@@ -127,8 +146,8 @@
                 <select id="bitrate-select" class="is-hidden" aria-hidden="true" tabindex="-1"><option value="192k" selected>192 kbps</option></select>
               </div>
               <div class="export-actions">
-                <button id="export-mp4-button" class="export-button" type="button" disabled><span><strong>Download video</strong><small id="export-video-detail">MP4 · H.264</small></span><span class="export-mark"><span class="export-icon" aria-hidden="true">↓</span></span></button>
-                <button id="export-mp3-button" class="export-button" type="button" disabled><span><strong>Download audio</strong><small id="export-audio-detail">MP3 · 192 kbps</small></span><span class="export-mark"><span class="export-icon" aria-hidden="true">↓</span></span></button>
+                <button id="export-mp4-button" class="export-button" type="button" disabled><span><strong>Download video</strong><small id="export-video-detail">MP4 · H.264</small></span><span class="export-mark"><svg class="ui-icon export-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg></span></button>
+                <button id="export-mp3-button" class="export-button" type="button" disabled><span><strong>Download audio</strong><small id="export-audio-detail">MP3 · 192 kbps</small></span><span class="export-mark"><svg class="ui-icon export-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg></span></button>
               </div>
               <div class="export-note" id="export-note">Choose a local media file to enable export.</div>
             </div>
@@ -137,21 +156,21 @@
           <section id="jobs-section" class="jobs-section is-hidden" aria-labelledby="jobs-heading">
             <div class="section-heading">
               <div><h2 id="jobs-heading" tabindex="-1">Downloads</h2><p>Finished exports are added to the LocalStream Downloads bin, ready for your timeline.</p></div>
-              <div class="editor-heading-actions"><span class="section-count" id="job-count">0</span><button id="back-to-browse" class="quiet-button compact-button" type="button">← Results</button></div>
+              <div class="editor-heading-actions"><span class="section-count" id="job-count">0</span><button id="back-to-browse" class="quiet-button compact-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg> Results</button></div>
             </div>
             <div id="jobs-list" class="jobs-list">
               <div class="empty-jobs">Your exports will appear here.</div>
             </div>
           </section>
 
-          <footer class="footer-row"><span>Local processing</span><span id="footer-version">0.2.0</span></footer>
+          <footer class="footer-row"><span>Local processing</span><span id="footer-version">0.2.1</span></footer>
         </main>
       </div>
 
       <section id="settings-panel" class="settings-panel is-hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
           <div class="section-heading settings-heading">
           <div><h2 id="settings-title">Settings</h2><p id="settings-description">Download location and quality</p></div>
-          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
         </div>
         <form id="settings-form" class="settings-form">
           <div class="setting-card">
@@ -162,20 +181,20 @@
           <label class="check-row setting-card"><span><strong>YouTube browser session</strong><small>Use local browser cookies only when YouTube sign-in is required.</small></span><input id="setting-browser-session" type="checkbox" /></label>
           <div class="setting-card download-location">
             <div><strong>Download location</strong><span id="setting-output-label" class="field-note"></span></div>
-            <button id="choose-output-folder" class="quiet-button compact-button" type="button">Change…</button>
+            <button id="choose-output-folder" class="quiet-button compact-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2z"></path><path d="M3 12h18"></path></svg> Change…</button>
           </div>
           <label class="check-row setting-card"><span><strong>Light mode</strong><small>Use a light theme for the panel.</small></span><input id="setting-light-mode" type="checkbox" /></label>
           <label class="check-row setting-card"><span><strong>Pause preview when hidden</strong><small>Pause video when Local Stream is not visible.</small></span><input id="setting-pause-hidden" type="checkbox" checked /></label>
           <div class="form-divider"></div>
           <label for="setting-youtube-key">YouTube Data API v3 key <span class="field-note">Required for search. Saved on this computer.</span><input id="setting-youtube-key" name="youtube-api-key" type="password" spellcheck="false" autocomplete="off" placeholder="Paste API key" /></label>
           <label class="check-row"><input id="setting-clear-youtube" type="checkbox" /> Clear saved YouTube key</label>
-          <div class="settings-actions"><button type="submit" class="primary-button">Save settings</button><span id="settings-status" class="field-note" role="status" aria-live="polite"></span></div>
+          <div class="settings-actions"><button type="submit" class="primary-button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg> Save settings</button><span id="settings-status" class="field-note" role="status" aria-live="polite"></span></div>
         </form>
       </section>
 
       <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
         <span id="toast-message"></span>
-        <button id="toast-close" class="toast-close" type="button" aria-label="Dismiss message">×</button>
+        <button id="toast-close" class="toast-close" type="button" aria-label="Dismiss message"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
       </div>
     </div>
     <script src="lib/CSInterface.js"></script>

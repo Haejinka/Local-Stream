@@ -15,7 +15,7 @@ The installer can use a compatible Node.js, FFmpeg/FFprobe, and yt-dlp already o
 ## Option B: install a ZXP
 
 1. Install a CEP-compatible ZXP installer.
-2. Install `dist\Local-Stream-0.2.0.zxp` with that installer and accept its publisher prompt if you trust the package source.
+2. Install `dist\Local-Stream-0.2.1.zxp` with that installer and accept its publisher prompt if you trust the package source.
 3. Run `scripts\setup-tools.cmd` once. This provisions Node.js, FFmpeg, FFprobe, and yt-dlp without replacing the installed CEP panel.
 4. Restart Premiere, open **Window → Extensions (Legacy) → Local Stream**, then enter your YouTube API key in Settings.
 

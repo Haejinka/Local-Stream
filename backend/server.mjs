@@ -98,10 +98,10 @@ function youtubePreviewHtml(videoId, origin) {
       let stateTimer=null;
       function report(){
         if(!player || typeof player.getDuration!=='function') return;
-        parent.postMessage({type:'local-stream-player-state',videoId,duration:player.getDuration(),currentTime:player.getCurrentTime(),playerState:player.getPlayerState()},'*');
+        parent.postMessage({type:'local-stream-player-state',videoId,ready:true,duration:player.getDuration(),currentTime:player.getCurrentTime(),playerState:player.getPlayerState(),isMuted:player.isMuted()},'*');
       }
       function onYouTubeIframeAPIReady(){
-        player=new YT.Player('player',{videoId,playerVars:{controls:1,enablejsapi:1,playsinline:1,rel:0,origin:youtubeOrigin,widget_referrer:youtubeOrigin},events:{onReady(){report();stateTimer=setInterval(report,400)},onStateChange:report}});
+        player=new YT.Player('player',{videoId,playerVars:{controls:0,enablejsapi:1,playsinline:1,rel:0,origin:youtubeOrigin,widget_referrer:youtubeOrigin},events:{onReady(){report();stateTimer=setInterval(report,400)},onStateChange:report,onError(event){parent.postMessage({type:'local-stream-player-error',videoId,errorCode:Number(event.data)||0},'*')}}});
       }
       const api=document.createElement('script');api.src='https://www.youtube.com/iframe_api';document.head.appendChild(api);
       addEventListener('message',event=>{
@@ -111,6 +111,8 @@ function youtubePreviewHtml(videoId, origin) {
         if(data.command==='seek' && Number.isFinite(Number(data.seconds))) player.seekTo(Math.max(0,Number(data.seconds)),true);
         else if(data.command==='play') player.playVideo();
         else if(data.command==='pause') player.pauseVideo();
+        else if(data.command==='mute') player.mute();
+        else if(data.command==='unmute') player.unMute();
       });
       addEventListener('pagehide',()=>clearInterval(stateTimer));
     </script></body></html>`;
@@ -555,6 +557,27 @@ const server = http.createServer(async (req, res) => {
       if (!query) return replyError(res, 400, 'Enter a search phrase.');
       return json(res, 200, await searchYouTube(query, mode, pageToken));
     }
+    if (req.method === 'POST' && url.pathname === '/api/youtube/preview') {
+      const body = await parseBody(req);
+      const youtubeId = String(body.youtubeId || '');
+      if (!/^[A-Za-z0-9_-]{11}$/.test(youtubeId)) throw Object.assign(new Error('Enter a valid YouTube video ID.'), { status: 400 });
+      const previewController = new AbortController();
+      res.once('close', () => {
+        if (!res.writableEnded) previewController.abort();
+      });
+      const previewArgs = [
+        '--no-playlist', '--no-warnings',
+        '--format', 'best[height<=720][ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[height<=720][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]',
+        '--get-url',
+        `https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`
+      ];
+      if (settings.youtubeBrowserSession) previewArgs.unshift('--cookies-from-browser', browserForYouTubeCookies());
+      else previewArgs.unshift('--extractor-args', 'youtube:player_client=android');
+      const preview = await runProcess(safeBinary('yt-dlp'), previewArgs, { signal: previewController.signal, timeoutMs: 90_000 });
+      const streamUrl = preview.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => /^https:\/\//i.test(line)).at(-1) || '';
+      if (!streamUrl) throw Object.assign(new Error('yt-dlp did not return a playable preview stream.'), { status: 502 });
+      return json(res, 200, { url: streamUrl });
+    }
     const jobRoute = /^\/api\/jobs\/([0-9a-f-]{36})(?:\/(retry|cancel|project-import))?$/.exec(url.pathname);
     if (jobRoute) {
       const [, id, action] = jobRoute;
@@ -596,7 +619,7 @@ const server = http.createServer(async (req, res) => {
     }
     replyError(res, 404, 'Route not found.');
   } catch (error) {
-    replyError(res, error.status || 500, error.message || 'Request failed.');
+    if (!res.destroyed && !res.writableEnded) replyError(res, error.status || 500, error.message || 'Request failed.');
   }
 });
 

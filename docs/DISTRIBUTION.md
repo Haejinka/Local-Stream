@@ -8,7 +8,7 @@ From the repository root, run:
 powershell -ExecutionPolicy Bypass -File .\scripts\package-zxp.ps1
 ```
 
-The script downloads Adobe ZXPSignCmd into `%LOCALAPPDATA%\LocalStream\tools`, copies the CEP extension and its sibling backend into a temporary staging folder, signs the staged extension, and verifies the result. The package is written to `dist\Local-Stream-0.2.0.zxp`.
+The script downloads Adobe ZXPSignCmd into `%LOCALAPPDATA%\LocalStream\tools`, copies the CEP extension and its sibling backend into a temporary staging folder, signs the staged extension, and verifies the result. The package is written to `dist\Local-Stream-0.2.1.zxp`.
 
 On first use, the script creates a self-signed publisher certificate under `%LOCALAPPDATA%\LocalStream\certs`, generates a strong password, and stores that password protected with Windows DPAPI. The password cache is readable only by the same Windows account on the same computer. Never commit the `.p12`, DPAPI cache, or password. The package script intentionally excludes the developer installer, local settings, API keys, backend token, runtime tools, and repository documentation from the ZXP.
 

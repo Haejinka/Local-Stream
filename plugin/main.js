@@ -14,6 +14,12 @@ const state = {
   previewPollTimer: null,
   pendingOutputFolder: '',
   youtubePlayerState: -1,
+  youtubePlayerReady: false,
+  youtubePreviewMode: 'none',
+  youtubePreviewGeneration: 0,
+  youtubePreviewAbort: null,
+  youtubePreviewError: 0,
+  isMuted: false,
   youtubeMeta: null,
   sourcePath: '',
   sourceName: '',
@@ -42,22 +48,43 @@ const API_KEYS = {
   selectedFormat: 'format',
   selectedQuality: 'quality'
 };
+const ICON_PATHS = {
+  download: [
+    'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4',
+    'm7 10 5 5 5-5',
+    'M12 15V3'
+  ]
+};
 
 function query(selector) { return document.querySelector(selector); }
 
+function createUiIcon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'ui-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (const pathData of ICON_PATHS[name] || []) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
 function cacheElements() {
   for (const id of [
-    'backend-state', 'settings-toggle', 'search-input', 'search-button', 'open-file', 'settings-panel', 'page-content',
+    'backend-state', 'settings-toggle', 'search-input', 'open-file', 'settings-panel', 'page-content',
     'settings-close', 'settings-form', 'setting-default-quality', 'setting-allow-encoding', 'setting-browser-session', 'setting-output-label',
     'choose-output-folder', 'setting-light-mode', 'setting-pause-hidden', 'setting-youtube-key', 'setting-clear-youtube', 'settings-status', 'results',
     'mode-video', 'mode-music', 'history-toggle',
     'download-progress', 'download-progress-label', 'download-progress-percent', 'download-progress-track', 'download-progress-fill', 'download-progress-queue',
-    'search-area', 'browser-section', 'editor-section', 'jobs-section', 'browser-subtitle', 'result-count', 'load-more-results', 'source-video', 'youtube-player', 'preview-placeholder', 'media-title',
+    'search-area', 'browser-section', 'editor-section', 'jobs-section', 'browser-subtitle', 'result-count', 'load-more-results', 'source-video', 'youtube-player', 'preview-placeholder', 'preview-feedback', 'preview-frame', 'media-title',
     'media-meta', 'clear-media', 'external-player-actions', 'open-youtube-browser', 'timeline', 'selected-range', 'playhead', 'start-handle', 'end-handle',
     'start-input', 'end-input', 'set-start', 'set-end', 'reset-range', 'clip-menu-toggle', 'clip-menu', 'preview-clip', 'selected-duration', 'playhead-time',
-    'media-duration', 'quality-select', 'bitrate-select',
+    'media-duration', 'player-play-toggle', 'player-mute-toggle', 'player-fullscreen-toggle', 'quality-select', 'bitrate-select',
     'export-mp4-button', 'export-mp3-button', 'export-video-detail', 'export-audio-detail', 'export-note', 'jobs-list', 'job-count', 'toast', 'toast-message',
-    'toast-close', 'footer-version', 'settings-status', 'back-to-results', 'back-to-browse', 'browser-heading', 'editor-heading', 'jobs-heading'
+    'toast-close', 'footer-version', 'settings-status', 'back-to-results', 'back-to-browse', 'browser-heading', 'jobs-heading'
   ]) el[id] = query(`#${id}`);
 }
 
@@ -128,12 +155,15 @@ async function api(path, options = {}) {
   const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
   const controller = new AbortController();
+  const forwardAbort = options.signal ? () => controller.abort() : null;
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener('abort', forwardAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 15_000);
   try {
     const response = await fetch(`${state.apiBase}${path}`, {
       ...options,
       headers,
-      signal: options.signal || controller.signal,
+      signal: controller.signal,
       credentials: 'omit',
       cache: 'no-store'
     });
@@ -145,6 +175,7 @@ async function api(path, options = {}) {
     throw error;
   } finally {
     clearTimeout(timeout);
+    if (forwardAbort) options.signal.removeEventListener('abort', forwardAbort);
   }
 }
 
@@ -334,6 +365,7 @@ function renderTimeline() {
   el['start-handle'].disabled = !loaded;
   el['end-handle'].disabled = !loaded;
   updateExportButton();
+  updatePlayerControls();
 }
 
 function updateExportButton() {
@@ -359,16 +391,63 @@ function updateExportButton() {
   }
 }
 
+function isYouTubeStreamPreview() {
+  return Boolean(state.selectedYouTubeId && state.youtubePreviewMode === 'stream');
+}
+
+function isYouTubeEmbedPreview() {
+  return Boolean(state.selectedYouTubeId && ['embed', 'resolving'].includes(state.youtubePreviewMode));
+}
+
+function updatePlayerControls() {
+  const hasLocalSource = Boolean(state.sourcePath);
+  const hasYouTubeSource = Boolean(state.selectedYouTubeId);
+  const isStreamPreview = isYouTubeStreamPreview();
+  const isEmbeddedPreview = isYouTubeEmbedPreview();
+  const mediaReady = el['source-video'].readyState >= 1 && state.duration > 0;
+  const canPlay = (hasLocalSource || isStreamPreview) ? mediaReady : isEmbeddedPreview && state.youtubePlayerReady && !state.youtubePreviewError;
+  const isPlaying = isEmbeddedPreview
+    ? state.youtubePlayerState === 1
+    : (hasLocalSource || isStreamPreview) && !el['source-video'].paused;
+  const isMuted = isEmbeddedPreview ? state.isMuted : (hasLocalSource || isStreamPreview) && el['source-video'].muted;
+  const isFullscreen = document.fullscreenElement === el['preview-frame'];
+
+  el['player-play-toggle'].disabled = !canPlay;
+  el['player-play-toggle'].classList.toggle('is-playing', isPlaying);
+  el['player-play-toggle'].setAttribute('aria-label', isPlaying ? 'Pause preview' : 'Play preview');
+  el['player-play-toggle'].title = isPlaying ? 'Pause' : 'Play';
+  el['player-mute-toggle'].disabled = !canPlay;
+  el['player-mute-toggle'].setAttribute('aria-label', isMuted ? 'Unmute preview' : 'Mute preview');
+  el['player-mute-toggle'].title = isMuted ? 'Unmute' : 'Mute';
+  el['preview-frame'].classList.toggle('is-muted', Boolean(isMuted));
+  el['preview-frame'].classList.toggle('is-fullscreen', isFullscreen);
+  el['player-fullscreen-toggle'].disabled = !hasLocalSource && !hasYouTubeSource;
+  el['player-fullscreen-toggle'].setAttribute('aria-label', isFullscreen ? 'Exit full screen' : 'Enter full screen');
+  el['player-fullscreen-toggle'].title = isFullscreen ? 'Exit full screen' : 'Full screen';
+}
+
+function updatePreviewAspectRatio() {
+  const width = Number(el['source-video'].videoWidth);
+  const height = Number(el['source-video'].videoHeight);
+  if ((state.sourcePath || isYouTubeStreamPreview()) && width > 0 && height > 0) {
+    el['preview-frame'].style.setProperty('--preview-aspect-ratio', `${width} / ${height}`);
+  } else {
+    el['preview-frame'].style.removeProperty('--preview-aspect-ratio');
+  }
+}
+
 function showEditor() {
+  document.body.classList.add('editor-open');
   el['search-area'].classList.add('is-hidden');
   el['browser-section'].classList.add('is-hidden');
   el['jobs-section'].classList.add('is-hidden');
   el['editor-section'].classList.remove('is-hidden');
   el['editor-section'].scrollIntoView({ block: 'start', behavior: 'auto' });
-  el['editor-heading'].focus();
+  el['media-title'].focus();
 }
 
 function returnToResults() {
+  document.body.classList.remove('editor-open');
   state.previewLoop = false;
   el['source-video'].pause();
   if (state.selectedYouTubeId) sendYouTubeCommand('pause');
@@ -382,6 +461,7 @@ function returnToResults() {
 }
 
 function showHistory() {
+  document.body.classList.remove('editor-open');
   state.previewLoop = false;
   el['source-video'].pause();
   if (state.selectedYouTubeId) sendYouTubeCommand('pause');
@@ -414,7 +494,7 @@ function seekPlayhead(seconds) {
   if (!state.duration || (!state.sourcePath && !state.selectedYouTubeId)) return;
   const next = clamp(Number(seconds) || 0, 0, state.duration);
   state.playhead = next;
-  if (state.selectedYouTubeId) sendYouTubeCommand('seek', { seconds: next });
+  if (isYouTubeEmbedPreview()) sendYouTubeCommand('seek', { seconds: next });
   else el['source-video'].currentTime = next;
   renderTimeline();
 }
@@ -491,7 +571,12 @@ function fileUrlFromPath(filePath) {
 }
 
 async function loadLocalMedia(filePath, fileUrl, fileName) {
+  cancelYouTubePreviewResolution();
   state.previewLoop = false;
+  state.youtubePreviewMode = 'none';
+  state.youtubePlayerReady = false;
+  state.youtubePreviewError = 0;
+  state.isMuted = false;
   state.sourcePath = filePath;
   state.sourceName = fileName || filePath.split(/[\\/]/).pop();
   state.media = null;
@@ -501,10 +586,15 @@ async function loadLocalMedia(filePath, fileUrl, fileName) {
   state.playhead = 0;
   state.selectedYouTubeId = '';
   state.youtubeMeta = null;
+  el['preview-frame'].style.removeProperty('--preview-aspect-ratio');
+  el['preview-frame'].classList.remove('is-preview-loading');
   el['youtube-player'].classList.add('is-hidden');
   el['youtube-player'].setAttribute('src', 'about:blank');
+  el['preview-feedback'].classList.add('is-hidden');
+  el['preview-feedback'].textContent = '';
   el['external-player-actions'].classList.add('is-hidden');
   el['source-video'].classList.remove('is-hidden');
+  el['source-video'].muted = false;
   el['source-video'].src = fileUrl;
   el['preview-placeholder'].classList.add('is-hidden');
   el['clear-media'].disabled = false;
@@ -533,7 +623,12 @@ async function loadLocalMedia(filePath, fileUrl, fileName) {
 }
 
 function clearMedia() {
+  cancelYouTubePreviewResolution();
   state.previewLoop = false;
+  state.youtubePreviewMode = 'none';
+  state.youtubePlayerReady = false;
+  state.youtubePreviewError = 0;
+  state.isMuted = false;
   closeClipMenu();
   state.sourcePath = '';
   state.sourceName = '';
@@ -544,12 +639,16 @@ function clearMedia() {
   state.playhead = 0;
   state.selectedYouTubeId = '';
   state.youtubeMeta = null;
+  el['preview-frame'].style.removeProperty('--preview-aspect-ratio');
   el['source-video'].pause();
   el['source-video'].removeAttribute('src');
   el['source-video'].load();
   el['source-video'].classList.remove('is-hidden');
+  el['preview-frame'].classList.remove('is-preview-loading');
   el['youtube-player'].classList.add('is-hidden');
   el['youtube-player'].setAttribute('src', 'about:blank');
+  el['preview-feedback'].classList.add('is-hidden');
+  el['preview-feedback'].textContent = '';
   el['external-player-actions'].classList.add('is-hidden');
   el['preview-placeholder'].classList.remove('is-hidden');
   el['clear-media'].disabled = true;
@@ -573,13 +672,22 @@ function extractYouTubeId(input) {
 }
 
 function showYouTube(video) {
-  const id = typeof video === 'string' ? video : video.id;
+  const rawId = typeof video === 'string'
+    ? video
+    : video?.id?.videoId || video?.videoId || video?.id || video?.url || '';
+  const rawIdText = String(rawId).trim();
+  const id = extractYouTubeId(rawIdText) || rawIdText;
   if (!/^[A-Za-z0-9_-]{11}$/.test(id || '')) {
-    showToast('That does not look like a valid YouTube video URL.', true);
+    showToast('This result does not contain a valid YouTube video ID. Try another result.', true);
     return;
   }
+  cancelYouTubePreviewResolution();
   state.selectedYouTubeId = id;
   state.youtubeMeta = typeof video === 'string' ? { id } : video;
+  state.youtubePreviewMode = 'embed';
+  state.youtubePlayerReady = false;
+  state.youtubePreviewError = 0;
+  state.isMuted = false;
   state.sourcePath = '';
   state.sourceName = typeof video === 'string' ? 'YouTube video' : video.title || 'YouTube video';
   state.media = { hasVideo: true, hasAudio: true, height: null };
@@ -590,12 +698,17 @@ function showYouTube(video) {
   state.playhead = 0;
   state.youtubePlayerState = -1;
   state.previewLoop = false;
+  el['preview-frame'].style.removeProperty('--preview-aspect-ratio');
+  el['preview-frame'].classList.remove('is-preview-loading');
   el['source-video'].pause();
   el['source-video'].removeAttribute('src');
   el['source-video'].load();
   el['source-video'].classList.add('is-hidden');
+  el['source-video'].muted = false;
   el['youtube-player'].classList.remove('is-hidden');
   el['external-player-actions'].classList.remove('is-hidden');
+  el['preview-feedback'].classList.add('is-hidden');
+  el['preview-feedback'].textContent = '';
   const previewUrl = new URL('/youtube-preview', state.apiBase);
   previewUrl.searchParams.set('videoId', id);
   el['youtube-player'].setAttribute('src', previewUrl.href);
@@ -603,9 +716,10 @@ function showYouTube(video) {
   el['clear-media'].disabled = false;
   const title = state.sourceName;
   setMeta(title, { duration: state.duration || undefined });
-  el['media-meta'].children[0].textContent = 'YouTube';
-  el['media-meta'].children[1].textContent = 'Embedded preview';
-  el['media-meta'].children[2].textContent = 'Clip and download';
+  const viewCount = Number(state.youtubeMeta?.views) || 0;
+  el['media-meta'].children[0].textContent = viewCount ? `${viewCount.toLocaleString()} views` : 'YouTube video';
+  el['media-meta'].children[1].textContent = state.youtubeMeta?.channel || 'YouTube';
+  el['media-meta'].children[2].textContent = '';
   renderTimeline();
   showEditor();
 }
@@ -620,13 +734,111 @@ function sendYouTubeCommand(command, payload = {}) {
   }, '*');
 }
 
+function cancelYouTubePreviewResolution() {
+  state.youtubePreviewGeneration += 1;
+  state.youtubePreviewAbort?.abort();
+  state.youtubePreviewAbort = null;
+}
+
+async function resolveYouTubePreviewStream(videoId) {
+  state.youtubePreviewAbort?.abort();
+  const generation = ++state.youtubePreviewGeneration;
+  const controller = new AbortController();
+  state.youtubePreviewAbort = controller;
+  state.youtubePreviewMode = 'resolving';
+  state.youtubePlayerReady = false;
+  el['youtube-player'].classList.add('is-hidden');
+  el['youtube-player'].setAttribute('src', 'about:blank');
+  el['source-video'].pause();
+  el['source-video'].removeAttribute('src');
+  el['source-video'].load();
+  el['source-video'].classList.add('is-hidden');
+  el['preview-frame'].classList.add('is-preview-loading');
+  el['preview-feedback'].textContent = 'Loading direct preview…';
+  el['preview-feedback'].classList.remove('is-hidden');
+  updatePlayerControls();
+
+  try {
+    const result = await api('/api/youtube/preview', {
+      ...jsonOptions({ youtubeId: videoId }),
+      signal: controller.signal,
+      timeoutMs: 95_000
+    });
+    if (generation !== state.youtubePreviewGeneration || videoId !== state.selectedYouTubeId) return;
+    const streamUrl = new URL(String(result.url || ''));
+    if (streamUrl.protocol !== 'https:') throw new Error('The preview stream URL was not secure.');
+
+    state.youtubePreviewMode = 'stream';
+    state.youtubePreviewError = 0;
+    state.youtubePlayerState = -1;
+    state.isMuted = false;
+    el['source-video'].muted = false;
+    el['source-video'].classList.remove('is-hidden');
+    el['source-video'].src = streamUrl.href;
+    el['source-video'].load();
+    updatePlayerControls();
+  } catch (error) {
+    if (generation !== state.youtubePreviewGeneration || videoId !== state.selectedYouTubeId) return;
+    state.youtubePreviewMode = 'failed';
+    el['preview-frame'].classList.remove('is-preview-loading');
+    const failure = String(error.message || '');
+    el['preview-feedback'].textContent = /sign in to confirm|not a bot|cookies/i.test(failure)
+      ? 'YouTube requires browser verification for this preview. Enable “Use browser session” in Settings, then select the video again.'
+      : 'The embedded player and direct preview could not play this video. Check your connection or open it on YouTube.';
+    el['preview-feedback'].classList.remove('is-hidden');
+    updatePlayerControls();
+  } finally {
+    if (state.youtubePreviewAbort === controller) state.youtubePreviewAbort = null;
+  }
+}
+
+function togglePreviewPlayback() {
+  if (isYouTubeEmbedPreview()) {
+    sendYouTubeCommand(state.youtubePlayerState === 1 ? 'pause' : 'play');
+  } else if (state.sourcePath || isYouTubeStreamPreview()) {
+    if (el['source-video'].paused) void el['source-video'].play().catch(() => showToast('This media could not be played in the preview.', true));
+    else el['source-video'].pause();
+  }
+}
+
+function togglePreviewMute() {
+  if (isYouTubeEmbedPreview()) {
+    sendYouTubeCommand(state.isMuted ? 'unmute' : 'mute');
+  } else if (state.sourcePath || isYouTubeStreamPreview()) {
+    el['source-video'].muted = !el['source-video'].muted;
+  }
+}
+
+async function togglePreviewFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    const requestFullscreen = el['preview-frame'].requestFullscreen || el['preview-frame'].webkitRequestFullscreen;
+    if (!requestFullscreen) throw new Error('Full screen is not available in this panel.');
+    await requestFullscreen.call(el['preview-frame']);
+  } catch (error) {
+    showToast(error.message || 'Could not open full screen.', true);
+  }
+}
+
 function receiveYouTubePlayerMessage(event) {
   if (!state.selectedYouTubeId || event.source !== el['youtube-player'].contentWindow) return;
   let expectedOrigin;
   try { expectedOrigin = new URL(state.apiBase).origin; } catch { return; }
   if (event.origin !== expectedOrigin) return;
   const data = event.data;
-  if (!data || data.type !== 'local-stream-player-state' || data.videoId !== state.selectedYouTubeId) return;
+  if (!data || data.videoId !== state.selectedYouTubeId) return;
+  if (data.type === 'local-stream-player-error' && state.youtubePreviewMode === 'embed') {
+    state.youtubePreviewError = Number(data.errorCode) || 1;
+    state.youtubePlayerReady = false;
+    void resolveYouTubePreviewStream(data.videoId);
+    return;
+  }
+  if (data.type !== 'local-stream-player-state' || !isYouTubeEmbedPreview()) return;
+  state.youtubePlayerReady = Boolean(data.ready);
+  state.isMuted = Boolean(data.isMuted);
   const reportedDuration = Number(data.duration);
   if (Number.isFinite(reportedDuration) && reportedDuration > 0) {
     const previousDuration = state.duration;
@@ -651,12 +863,12 @@ function togglePreviewClip() {
   state.previewLoop = !state.previewLoop;
   if (state.previewLoop) {
     seekPlayhead(state.start);
-    sendYouTubeCommand('play');
-    if (state.sourcePath) void el['source-video'].play().catch(() => {});
+    if (isYouTubeEmbedPreview()) sendYouTubeCommand('play');
+    else void el['source-video'].play().catch(() => {});
     showToast('Previewing the selected clip.');
   } else {
-    if (state.sourcePath) el['source-video'].pause();
-    else sendYouTubeCommand('pause');
+    if (isYouTubeEmbedPreview()) sendYouTubeCommand('pause');
+    else el['source-video'].pause();
     showToast('Clip preview stopped.');
   }
   closeClipMenu();
@@ -705,8 +917,6 @@ async function searchYouTube({ loadMore = false } = {}) {
   }
   if (loadMore && !state.nextPageToken) return;
   state.isSearching = true;
-  el['search-button'].disabled = true;
-  if (!loadMore) el['search-button'].textContent = '…';
   el['load-more-results'].disabled = true;
   el['load-more-results'].textContent = 'Loading…';
   el['browser-subtitle'].textContent = loadMore ? 'Loading more results…' : 'Searching YouTube…';
@@ -740,8 +950,6 @@ async function searchYouTube({ loadMore = false } = {}) {
     }
   } finally {
     state.isSearching = false;
-    el['search-button'].disabled = false;
-    el['search-button'].textContent = 'Search';
     el['load-more-results'].disabled = false;
     el['load-more-results'].textContent = 'Load more results';
     updateLoadMoreVisibility();
@@ -782,7 +990,8 @@ function renderResults(results, { append = false } = {}) {
     download.type = 'button'; download.className = 'result-action';
     const format = state.searchMode === 'music' ? 'mp3' : 'mp4';
     download.setAttribute('aria-label', `Download ${format === 'mp3' ? 'audio' : 'video'}: ${item.title}`);
-    download.title = `Download ${format === 'mp3' ? 'audio' : 'video'}`; download.textContent = '↓';
+    download.title = `Download ${format === 'mp3' ? 'audio' : 'video'}`;
+    download.appendChild(createUiIcon('download'));
     download.addEventListener('click', () => void queueYouTubeDownload(item, format));
     card.append(open, download);
     el['results'].appendChild(card);
@@ -1068,9 +1277,12 @@ function bindEvents() {
     el.toast.classList.remove('is-visible');
   });
   el['settings-form'].addEventListener('submit', saveSettings);
-  el['search-button'].addEventListener('click', searchYouTube);
   el['search-input'].addEventListener('input', updateLoadMoreVisibility);
-  el['search-input'].addEventListener('keydown', (event) => { if (event.key === 'Enter') searchYouTube(); });
+  el['search-input'].addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    void searchYouTube();
+  });
   document.addEventListener('pointerdown', primeCompletionAudio, { once: true });
   document.addEventListener('keydown', primeCompletionAudio, { once: true });
   el['load-more-results'].addEventListener('click', () => void searchYouTube({ loadMore: true }));
@@ -1080,6 +1292,10 @@ function bindEvents() {
   el['open-file'].addEventListener('click', openLocalFile);
   el['clear-media'].addEventListener('click', clearMedia);
   el['open-youtube-browser'].addEventListener('click', openSelectedYouTubeInBrowser);
+  el['player-play-toggle'].addEventListener('click', togglePreviewPlayback);
+  el['player-mute-toggle'].addEventListener('click', togglePreviewMute);
+  el['player-fullscreen-toggle'].addEventListener('click', () => void togglePreviewFullscreen());
+  document.addEventListener('fullscreenchange', updatePlayerControls);
   el['back-to-results'].addEventListener('click', returnToResults);
   el['back-to-browse'].addEventListener('click', returnToResults);
   el['export-mp4-button'].addEventListener('click', () => void exportClip('mp4'));
@@ -1114,13 +1330,26 @@ function bindEvents() {
   el['source-video'].addEventListener('loadedmetadata', () => {
     const duration = Number(el['source-video'].duration);
     if (Number.isFinite(duration) && duration > 0) {
-      if (!state.media || state.duration <= 0) {
+      updatePreviewAspectRatio();
+      if (isYouTubeStreamPreview()) {
+        const previousDuration = state.duration;
+        state.duration = duration;
+        if (!previousDuration || state.end === previousDuration) state.end = duration;
+        state.start = clamp(state.start, 0, Math.max(0, duration - 1 / 60));
+        state.end = clamp(state.end, state.start + 1 / 60, duration);
+      } else if (!state.media || state.duration <= 0) {
         state.duration = duration;
         state.start = 0;
         state.end = duration;
       }
       renderTimeline();
     }
+  });
+  el['source-video'].addEventListener('loadeddata', () => {
+    if (!isYouTubeStreamPreview()) return;
+    el['preview-frame'].classList.remove('is-preview-loading');
+    el['preview-feedback'].classList.add('is-hidden');
+    el['preview-feedback'].textContent = '';
   });
   el['source-video'].addEventListener('timeupdate', () => {
     state.playhead = Number(el['source-video'].currentTime) || 0;
@@ -1132,6 +1361,19 @@ function bindEvents() {
   });
   el['source-video'].addEventListener('error', () => {
     if (state.sourcePath) showToast('Premiere preview could not decode this file. The backend may still support exporting it.', true);
+    else if (isYouTubeStreamPreview()) {
+      state.youtubePreviewMode = 'failed';
+      el['preview-frame'].classList.remove('is-preview-loading');
+      el['preview-feedback'].textContent = 'The direct preview stream could not be played. Open the video on YouTube or continue with the selected download range.';
+      el['preview-feedback'].classList.remove('is-hidden');
+      updatePlayerControls();
+    }
+  });
+  el['source-video'].addEventListener('play', updatePlayerControls);
+  el['source-video'].addEventListener('pause', updatePlayerControls);
+  el['source-video'].addEventListener('volumechange', () => {
+    state.isMuted = el['source-video'].muted;
+    updatePlayerControls();
   });
 
   el['timeline'].addEventListener('click', (event) => {
@@ -1198,7 +1440,7 @@ function initialize() {
   state.initialized = true;
   if (typeof CSInterface === 'function') state.csInterface = new CSInterface();
   cacheElements();
-  el['footer-version'].textContent = '0.2.0 · Premiere CEP';
+  el['footer-version'].textContent = '0.2.1 · Premiere CEP';
   bindEvents();
   renderTimeline();
   void connectBackend();
