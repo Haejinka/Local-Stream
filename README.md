@@ -4,6 +4,12 @@
 
 Search with your own YouTube Data API v3 key, set an In and Out point, and export a Premiere-friendly video or audio file. Local Stream runs its processing backend on your Windows computer and adds completed exports to the `LocalStream Downloads` bin in the active Premiere project.
 
+## Download
+
+**[Download here — latest ZXP release](https://github.com/Haejinka/Local-Stream/releases/latest)**
+
+Install the `.zxp` with a CEP-compatible ZXP installer. Then run `scripts\setup-tools.cmd` from the repository to set up the local processing tools, restart Premiere, and enter your own YouTube Data API v3 key in Settings. See the [Windows setup guide](docs/INSTALLATION.md) for the full steps.
+
 ![Local Stream search results](docs/screenshots/search-results.png)
 
 ## Features
