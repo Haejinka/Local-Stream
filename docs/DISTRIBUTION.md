@@ -1,33 +1,33 @@
-# ZXP distribution
+# Windows distribution
 
 ## Build
 
-From the repository root, run:
+On Windows, install Inno Setup 6.3 or 7, then run from the repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-zxp.ps1
+.\scripts\build-setup.cmd
 ```
 
-The script downloads Adobe ZXPSignCmd into `%LOCALAPPDATA%\LocalStream\tools`, copies the CEP extension and its sibling backend into a temporary staging folder, signs the staged extension, and verifies the result. The package is written to `dist\Local-Stream-0.2.1.zxp`.
+The build script first signs and verifies the versioned ZXP, then compiles `scripts\Local-Stream-Setup.iss` into `dist\Local-Stream-Setup-<version>.exe` and writes a matching `.sha256` sidecar. The first build downloads Adobe ZXPSignCmd and creates a self-signed certificate with a generated password protected by Windows DPAPI in local app data. Keep the private certificate and password cache outside the repository.
 
-On first use, the script creates a self-signed publisher certificate under `%LOCALAPPDATA%\LocalStream\certs`, generates a strong password, and stores that password protected with Windows DPAPI. The password cache is readable only by the same Windows account on the same computer. Never commit the `.p12`, DPAPI cache, or password. The package script intentionally excludes the developer installer, local settings, API keys, backend token, runtime tools, and repository documentation from the ZXP.
+The wizard bundles the signed ZXP and the setup helper scripts. At install time it asks Adobe's Unified Plugin Installer (included with Creative Cloud Desktop) to install the package. It provisions Node.js, FFmpeg, FFprobe, and yt-dlp as needed, verifying published SHA-256 checksums. Runtime tools are downloaded from their project/vendor release endpoints and stored under the user's Local Stream data directory. UPIA itself is not bundled.
 
-To use a separate publisher certificate, pass its P12 path with `-CertificatePath`, then enter its password when prompted. The P12 remains outside the repository.
+The setup installer is per-user and does not enable CEP developer mode. It requires an installed Creative Cloud Desktop app with Unified Plugin Installer and an internet connection when media tools are missing. The .exe is currently not Authenticode-signed, so Windows SmartScreen may display a warning. Signing the installer with a trusted code-signing certificate would reduce that warning for end users.
 
 ## Signing and trust
 
-A self-signed certificate lets CEP installers verify that a ZXP is internally signed and unchanged; it does not prove that Adobe or a certificate authority verified the publisher's identity. Recipients should obtain packages from a trusted release source and compare any published checksums. For a public production release, follow Adobe's current signing and distribution guidance and use a publisher identity suitable for the project.
+A self-signed extension certificate signs the ZXP so Adobe's installer and CEP can verify that the package has not changed. It does not establish a trusted publisher identity; recipients should download from a trusted release source and compare the published SHA-256 checksum. The certificate currently has a finite validity period and should be renewed and the package rebuilt before expiry. For a public production release, use a publisher identity and timestamping setup appropriate for the project.
 
-Adobe's packaging resources and tool are available in [Adobe CEP Resources](https://github.com/Adobe-CEP/CEP-Resources). Adobe's [Package, Distribute, and Install guide](https://github.com/Adobe-CEP/Getting-Started-guides/tree/master/Package%20Distribute%20Install) describes ZXP packaging, signing, and verification.
+Adobe documents the ZXP signing, verification, and installation flows in its [Package, Distribute, Install guide](https://github.com/Adobe-CEP/Getting-Started-guides/blob/master/Package%20Distribute%20Install/readme.md) and describes UPIA as the replacement for ExManCmd in its [plugin installer announcement](https://blog.developer.adobe.com/en/publish/2021/06/new-command-line-tool-for-plugin-installation-replaces-exmancmd).
 
-## Install
+## Manual installation
 
-Install the ZXP using a CEP-compatible installer. Then run `scripts\setup-tools.cmd` to install the local processing runtimes without changing the installed panel. Restart Premiere and open **Window → Extensions (Legacy) → Local Stream**. The detailed steps and troubleshooting are in [INSTALLATION.md](INSTALLATION.md).
+The setup wizard is the recommended user route. For manual installs, install the ZXP through Adobe's Unified Plugin Installer or another current CEP-compatible installer. To prepare runtime tools from a repository checkout, run `scripts\setup-tools.cmd`. See [INSTALLATION.md](INSTALLATION.md) for user steps and troubleshooting.
 
 ## Release checklist
 
 - Review the source diff and confirm no API key, backend token, signing certificate, or signing password is staged.
-- Build the ZXP with a private certificate stored outside the checkout.
-- Verify the ZXP with ZXPSignCmd (the build script does this after signing).
-- Test install and launch on a clean Windows account with the supported Premiere version and CEP 12.
-- Publish the ZXP and a SHA-256 checksum with the release notes. Do not publish the private P12 or password.
+- Build the ZXP and setup EXE with `scripts\build-setup.cmd` on Windows.
+- Verify the ZXP signature and record the setup EXE SHA-256 checksum.
+- Test installation and launch on a clean Windows account with Adobe Creative Cloud Desktop and a supported Premiere Pro version.
+- Publish the ZXP and setup EXE with the checksum and release notes. Do not publish the private P12 or password.

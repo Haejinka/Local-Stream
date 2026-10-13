@@ -28,3 +28,5 @@ tools/
 zxp-stage*/
 dist/*
 !dist/Local-Stream-*.zxp
+!dist/Local-Stream-Setup-*.exe
+!dist/Local-Stream-Setup-*.exe.sha256

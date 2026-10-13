@@ -6,9 +6,11 @@ Search with your own YouTube Data API v3 key, set an In and Out point, and expor
 
 ## Download
 
-**[Download Local Stream 0.2.1 (ZXP)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp)**
+**[Download the Local Stream setup wizard for Windows](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe)**
 
-Install the `.zxp` with a CEP-compatible ZXP installer. Then run `scripts\setup-tools.cmd` from the repository to set up the local processing tools, restart Premiere, and enter your own YouTube Data API v3 key in Settings. See the [Windows setup guide](docs/INSTALLATION.md) for the full steps.
+Verify the download with its [SHA-256 checksum](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe.sha256).
+
+The wizard installs the signed Premiere panel through Adobe Creative Cloud's Unified Plugin Installer and prepares Node.js, FFmpeg, FFprobe, and yt-dlp. Close Premiere before setup. After it finishes, open the panel and enter your own YouTube Data API v3 key in Settings. If you prefer to install the package separately, [download the ZXP](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp). See the [Windows setup guide](docs/INSTALLATION.md) for details.
 
 ## Features
 
@@ -46,25 +48,29 @@ Install the `.zxp` with a CEP-compatible ZXP installer. Then run `scripts\setup-
 
 - Windows 10 or 11.
 - Adobe Premiere Pro 25.6 or later with CEP 12 support.
+- Adobe Creative Cloud desktop app (provides Adobe's extension installer).
 - A YouTube Data API v3 key for search.
 - Internet access for YouTube search, preview, and source retrieval.
-- Node.js 20+, FFmpeg, FFprobe, and yt-dlp. The setup scripts can provision these locally if they are not already installed.
+- The setup wizard provisions Node.js 20+, FFmpeg, FFprobe, and yt-dlp locally. Internet access is required to download any missing tools.
 
-## Quick start: install from source
+## Quick start: install with the setup wizard
 
-1. Download or clone this repository.
-2. Close Premiere Pro, then run `scripts\install-cep.cmd`.
-3. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
-4. Open Settings, paste your YouTube Data API v3 key, and save.
-5. Search, select a result, set the range, and choose **Download video** or **Download audio**.
+1. Download and run `Local-Stream-Setup-0.2.1.exe` with Premiere closed.
+2. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
+3. Open Settings, paste your YouTube Data API v3 key, and save.
+4. Search, select a result, set the range, and choose **Download video** or **Download audio**.
 
-See [the full Windows setup guide](docs/INSTALLATION.md) for API key creation, ZXP installation, tool setup, privacy, and troubleshooting.
+See [the full Windows setup guide](docs/INSTALLATION.md) for API key creation, manual ZXP installation, privacy, and troubleshooting. Windows may show a SmartScreen warning because the community setup executable is not code-signed.
+
+## Install from source
+
+To work on the extension, download or clone this repository and run `scripts\install-cep.cmd`. This developer workflow installs the panel files directly and enables CEP developer mode for the current Windows user. The setup wizard is the recommended route for regular users.
 
 ## Build a ZXP for distribution
 
-Run `scripts\package-zxp.cmd` (or `powershell -ExecutionPolicy Bypass -File scripts\package-zxp.ps1`). The first run downloads Adobe's ZXPSignCmd and creates a self-signed certificate with a generated password protected by Windows DPAPI in your local app data. The resulting package is written to `dist\Local-Stream-0.2.1.zxp`.
+Run `scripts\build-setup.cmd` to create both the signed ZXP and Windows setup wizard. This requires Inno Setup 6.3 or 7 and Adobe's ZXPSignCmd; the first build downloads the signing tool and creates a self-signed certificate with a generated password protected by Windows DPAPI in your local app data. The ZXP and setup EXE are written to `dist`.
 
-The private signing certificate and its Windows-user-encrypted password cache are kept outside this repository. A self-signed package may show a publisher trust prompt in a CEP installer. See [distribution notes](docs/DISTRIBUTION.md) before publishing a release.
+The private signing certificate and its Windows-user-encrypted password cache are kept outside this repository. The certificate verifies package integrity but does not establish a trusted publisher identity. See [distribution notes](docs/DISTRIBUTION.md) before publishing a release.
 
 ## YouTube API key and media permissions
 
@@ -76,7 +82,7 @@ The project provides media retrieval and conversion features. Operators are resp
 
 The CEP panel starts its companion Node.js backend on `127.0.0.1:47831`. A random local bearer token authenticates panel requests. Settings, the token, tool paths, and job history live in `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere`; exports default to `%USERPROFILE%\Videos\Local Stream`. No Local Stream account or remote Local Stream service is required. YouTube services and the configured media source remain external network services.
 
-The setup scripts install the CEP panel under `%APPDATA%\Adobe\CEP\extensions\com.localstream.premiere`. They enable CEP 12's unsigned developer extension mode for the current Windows user. Restart Premiere after installing or updating.
+The setup wizard asks Adobe's Unified Plugin Installer to install the signed CEP package for the current user. It does not enable developer mode. Settings, the backend token, tool paths, and job history remain in `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere`; removing the panel preserves that data.
 
 ## Development
 

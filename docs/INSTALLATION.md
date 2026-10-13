@@ -1,25 +1,35 @@
 # Windows setup
 
-This guide covers both installation from the source repository and installation of a built ZXP package. You need Premiere Pro 25.6 or later with CEP 12 support.
+Local Stream supports Adobe Premiere Pro 25.6 or later with CEP 12. For regular users, the Windows setup wizard installs the signed panel and prepares the local media tools. A YouTube Data API v3 key is still needed for search.
 
-## Option A: install from source
+## Option A: setup wizard (recommended)
 
-1. Download or clone the repository to a local folder.
+1. Download and run `Local-Stream-Setup-0.2.1.exe` from the repository's [latest main branch](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.1.exe).
+2. Keep Premiere Pro closed until setup finishes.
+3. The wizard uses Adobe Creative Cloud's Unified Plugin Installer to install the signed ZXP and provisions Node.js, FFmpeg, FFprobe, and yt-dlp if they are not already available.
+4. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
+5. Open Settings, add your YouTube Data API v3 key, and save.
+
+The wizard needs the Creative Cloud desktop app and an internet connection. Missing media tools are downloaded and SHA-256 checked. It does not enable CEP developer mode. The setup EXE is not code-signed, so Windows may show a SmartScreen warning. If setup fails, see `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere\installer.log`.
+
+## Option B: install the ZXP manually
+
+1. Download [the signed ZXP](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.1.zxp).
+2. Install it using Adobe's Unified Plugin Installer (`UnifiedPluginInstallerAgent.exe --install <path-to-zxp>`) or a current CEP-compatible ZXP installer.
+3. Run `scripts\setup-tools.cmd` from a local repository checkout to provision Node.js, FFmpeg, FFprobe, and yt-dlp.
+4. Restart Premiere, open **Window → Extensions (Legacy) → Local Stream**, and enter your YouTube API key in Settings.
+
+The Adobe installer ships with the Creative Cloud desktop app. It is normally located at `%ProgramFiles%\Common Files\Adobe\Adobe Desktop Common\RemoteComponents\UPI\UnifiedPluginInstallerAgent\UnifiedPluginInstallerAgent.exe`.
+
+## Option C: install from source for development
+
+1. Download or clone the repository.
 2. Close Premiere Pro.
-3. Run `scripts\install-cep.cmd` and allow the script to finish. It installs the panel and backend for the current Windows account, enables CEP 12 developer extensions, and checks for the required runtime tools.
-4. Open Premiere Pro and select **Window → Extensions (Legacy) → Local Stream**.
-5. In Local Stream, select the gear icon, add your YouTube Data API v3 key, and save the settings.
+3. Run `scripts\install-cep.cmd`. This installs the panel and backend for the current Windows account and enables CEP 12 developer extensions for that account.
+4. Open Premiere and select **Window → Extensions (Legacy) → Local Stream**.
+5. In Settings, add your YouTube Data API v3 key and save.
 
-The installer can use a compatible Node.js, FFmpeg/FFprobe, and yt-dlp already on PATH. If a tool is missing, it downloads a portable copy and checks its published checksum where one is available. Those tools are stored in `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere\tools`.
-
-## Option B: install a ZXP
-
-1. Install a CEP-compatible ZXP installer.
-2. Install `dist\Local-Stream-0.2.1.zxp` with that installer and accept its publisher prompt if you trust the package source.
-3. Run `scripts\setup-tools.cmd` once. This provisions Node.js, FFmpeg, FFprobe, and yt-dlp without replacing the installed CEP panel.
-4. Restart Premiere, open **Window → Extensions (Legacy) → Local Stream**, then enter your YouTube API key in Settings.
-
-ZXP installations do not turn on unsigned CEP developer mode. If Premiere does not list the panel after installation, check that the installer supports CEP 12 and that your Premiere version still supports CEP extensions.
+The installer can use compatible Node.js 20+, FFmpeg/FFprobe, and yt-dlp tools already on `PATH`. If a tool is missing, it downloads a portable copy and verifies the published SHA-256 checksum. Tools are stored in `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere\tools`.
 
 ## Create a YouTube Data API v3 key
 
@@ -29,7 +39,7 @@ ZXP installations do not turn on unsigned CEP developer mode. If Premiere does n
 4. Restrict the key to YouTube Data API v3 where Google's key restriction options allow it.
 5. In Premiere's Local Stream panel, open Settings and paste the key into **YouTube Data API v3 key**, then save.
 
-The key is stored in the Local Stream settings file on this computer. Do not add your personal key to source code, screenshots, issue reports, or commits. Search uses YouTube Data API quota; each search request and each paginated follow-up consumes quota under Google's current quota rules.
+The key is stored in Local Stream's settings file on this computer. Do not add your personal key to source code, screenshots, issue reports, or commits. Search uses YouTube Data API quota; each search request and each paginated follow-up consumes quota under Google's current quota rules.
 
 ## What gets installed and where data lives
 
@@ -38,9 +48,9 @@ The key is stored in the Local Stream settings file on this computer. Do not add
 | CEP panel and backend | `%APPDATA%\Adobe\CEP\extensions\com.localstream.premiere` | Premiere extension files |
 | Settings, API key, backend token, history, and runtime tools | `%LOCALAPPDATA%\Adobe\CEP\extensionsData\com.localstream.premiere` | Per-user app data |
 | Default exports | `%USERPROFILE%\Videos\Local Stream` | Finished MP4 and MP3 files |
-| ZXP signing certificate and password cache | `%LOCALAPPDATA%\LocalStream\certs` | Private release signing data; never commit or distribute |
+| ZXP signing certificate and password cache (developer only) | `%LOCALAPPDATA%\LocalStream\certs` | Private release signing data; never commit or distribute |
 
-The backend listens only on `127.0.0.1:47831`. The panel starts it and reads its token automatically. You do not need to copy or configure the token. The installer migrates older settings and tools from `%LOCALAPPDATA%\LocalStream` when they exist.
+The backend listens only on `127.0.0.1:47831`. The panel starts it and reads its token automatically. You do not need to copy or configure the token. The developer installer migrates older settings and tools from `%LOCALAPPDATA%\LocalStream` when they exist.
 
 ## First export
 
@@ -57,8 +67,9 @@ MP4 export can re-encode to H.264/AAC for compatibility and precise trims. MP3 e
 
 ### The panel is missing from Premiere
 
+- For the setup wizard, confirm that Adobe Creative Cloud is installed and that setup completed successfully.
+- For a manual ZXP install, confirm the installer reports success and supports CEP 12.
 - For source installs, rerun `scripts\install-cep.cmd` and restart Premiere.
-- For ZXP installs, confirm that your ZXP installer supports CEP 12 and reports installation success.
 - Confirm Premiere Pro is version 25.6 or newer.
 
 ### Search says the API key is missing or invalid
@@ -76,7 +87,7 @@ MP4 export can re-encode to H.264/AAC for compatibility and precise trims. MP3 e
 
 ### A download fails or a format needs conversion
 
-- Run `scripts\setup-tools.cmd` to provision or repair Node.js, FFmpeg/FFprobe, and yt-dlp without reinstalling the panel.
+- Run `scripts\setup-tools.cmd` from the repository to provision or repair Node.js, FFmpeg/FFprobe, and yt-dlp without reinstalling the panel.
 - Check your network connection and the source video's availability and restrictions.
 - Some videos block embedding or require sign-in; the **YouTube browser session** setting can use local browser cookies when enabled. Availability depends on the source and the user's logged-in browser session.
 - Use media only when permitted by applicable terms and rights. Any written YouTube approval is specific to the operator and approved use.
@@ -89,4 +100,4 @@ MP4 export can re-encode to H.264/AAC for compatibility and precise trims. MP3 e
 
 ## Removing the panel
 
-Close Premiere, then remove `%APPDATA%\Adobe\CEP\extensions\com.localstream.premiere`. The app data folder contains settings, local job history, and the YouTube key; remove it separately only if you also want to erase those data. Removing the panel does not remove exported media from your download folder or the project bin.
+Uninstall Local Stream from Windows **Installed apps** or remove `%APPDATA%\Adobe\CEP\extensions\com.localstream.premiere`. The app data folder contains settings, local job history, tools, and the YouTube key; remove it separately only if you also want to erase those data. Removing the panel does not remove exported media from your download folder or project bin.
