@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local Stream</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div id="page-content">
+        <header class="topbar">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div>
+              <h1 class="brand-name">Local Stream</h1>
+              <div class="brand-subtitle">MEDIA DESK</div>
+            </div>
+          </div>
+          <div class="backend-state" id="backend-state" aria-live="polite"><i class="status-dot" aria-hidden="true"></i><span>Backend offline</span></div>
+          <button class="icon-button" id="history-toggle" type="button" aria-label="Show downloads" title="Downloads">◷</button>
+          <button class="icon-button" id="settings-toggle" type="button" aria-label="Open settings" title="Settings">⚙</button>
+        </header>
+
+        <section id="download-progress" class="download-progress is-hidden" aria-label="Download progress">
+          <div class="download-progress-heading">
+            <span id="download-progress-label" class="download-progress-label"></span>
+            <span id="download-progress-percent" class="download-progress-percent"></span>
+          </div>
+          <div id="download-progress-track" class="download-progress-track" role="progressbar" aria-label="Current media job progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="download-progress-fill" class="download-progress-fill"></span>
+          </div>
+          <div id="download-progress-queue" class="download-progress-queue"></div>
+        </section>
+
+        <section class="search-area" id="search-area" aria-label="Search or open media">
+          <div class="search-row">
+            <label class="sr-only" for="search-input">Search YouTube or paste a video link</label>
+            <input id="search-input" name="youtube-search" type="search" placeholder="Search YouTube or paste a URL" autocomplete="off" />
+            <button id="search-button" class="primary-button" type="button">Search</button>
+          </div>
+          <div class="browse-tools" role="group" aria-label="Search category">
+            <button id="mode-video" class="mode-button is-selected" type="button" aria-pressed="true" title="Search videos">▣</button>
+            <button id="mode-music" class="mode-button" type="button" aria-pressed="false" title="Search music">♫</button>
+            <span class="browse-tools-spacer"></span>
+          </div>
+          <div class="toolbar-row">
+            <button id="open-file" class="quiet-button" type="button"><span class="button-icon" aria-hidden="true">＋</span> Open local media</button>
+            <span class="source-hint">Local files are processed on this computer</span>
+          </div>
+        </section>
+
+        <main id="main-content">
+          <section id="browser-section" class="browser-section" aria-labelledby="browser-heading">
+            <div class="section-heading">
+              <div><h2 id="browser-heading" tabindex="-1">Browse</h2><p id="browser-subtitle">Search YouTube or paste a video link</p></div>
+              <span class="section-count" id="result-count" role="status" aria-live="polite"></span>
+            </div>
+            <ul id="results" class="results-list" aria-label="YouTube search results">
+              <li class="empty-state"><span class="empty-icon" aria-hidden="true">⌕</span><strong>Find a video or open local media</strong><span>Add a YouTube API key in Settings to search. Local files work without one.</span></li>
+            </ul>
+            <div class="results-pagination"><button id="load-more-results" class="quiet-button is-hidden" type="button">Load more results</button></div>
+          </section>
+
+          <section id="editor-section" class="editor-section is-hidden" aria-labelledby="editor-heading">
+            <div class="section-heading editor-title-row">
+              <div><h2 id="editor-heading" tabindex="-1">Clip editor</h2><p id="media-title">No local media selected</p></div>
+              <div class="editor-heading-actions">
+                <button id="back-to-results" class="quiet-button compact-button" type="button">← Results</button>
+                <button id="clear-media" class="quiet-button compact-button" type="button" disabled>Clear</button>
+              </div>
+            </div>
+            <div class="preview-frame" id="preview-frame">
+              <video id="source-video" controls playsinline preload="metadata" aria-label="Local media preview"></video>
+              <iframe id="youtube-player" class="is-hidden" width="100%" height="100%" src="about:blank" title="YouTube video preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+              <div id="preview-placeholder" class="preview-placeholder">
+                <div class="preview-orbit" aria-hidden="true">▶</div>
+                <strong>Preview</strong>
+                <span>Open a local file or select a YouTube result</span>
+              </div>
+            </div>
+            <div class="media-meta" id="media-meta"><span>—</span><span>—</span><span>—</span></div>
+            <div id="external-player-actions" class="external-player-actions is-hidden">
+              <button id="open-youtube-browser" class="quiet-button compact-button" type="button">Open on YouTube ↗</button>
+            </div>
+
+            <div class="trim-card" id="trim-card" aria-label="Clip range selection">
+              <div class="timeline-topline">
+                <span>CLIP RANGE</span>
+                <span class="duration-label">Selected duration <strong id="selected-duration" class="duration-badge">00:00</strong></span>
+              </div>
+              <div class="timeline-wrap">
+                <div id="timeline" class="timeline" role="group" aria-label="Playback and trim timeline" tabindex="0">
+                  <div class="timeline-base" aria-hidden="true"></div>
+                  <div id="selected-range" class="selected-range" aria-hidden="true"></div>
+                  <div id="playhead" class="playhead" aria-hidden="true"></div>
+                  <button id="start-handle" class="range-handle start-handle" type="button" role="slider" aria-label="Clip start" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
+                  <button id="end-handle" class="range-handle end-handle" type="button" role="slider" aria-label="Clip end" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span aria-hidden="true"></span></button>
+                </div>
+                <div class="timeline-scale"><span>Playhead <strong id="playhead-time">00:00</strong></span><span id="media-duration">00:00</span></div>
+              </div>
+              <div class="trim-toolbar">
+                <div class="trim-control">
+                  <label for="start-input">IN</label>
+                  <input id="start-input" class="time-input" name="clip-start" type="text" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
+                </div>
+                <span class="range-separator" aria-hidden="true">—</span>
+                <div class="trim-control">
+                  <label for="end-input">OUT</label>
+                  <input id="end-input" class="time-input" name="clip-end" type="text" value="00:00" spellcheck="false" aria-describedby="time-format-note" />
+                </div>
+                <button id="clip-menu-toggle" class="clip-menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Clip range options" title="Clip range options">•••</button>
+                <div id="clip-menu" class="clip-menu is-hidden" role="menu" aria-label="Clip range options">
+                  <button id="set-start" type="button" role="menuitem">Set In point at playhead</button>
+                  <button id="set-end" type="button" role="menuitem">Set Out point at playhead</button>
+                  <button id="preview-clip" type="button" role="menuitem">Preview selected clip</button>
+                  <button id="reset-range" type="button" role="menuitem">Reset range</button>
+                </div>
+              </div>
+              <div id="time-format-note" class="time-format-note">Drag the handles to set the clip range. Use the menu for precise points.</div>
+            </div>
+
+            <div class="export-controls">
+                <div class="section-heading export-heading"><div><h3>Download selected range</h3><p>Choose video or audio</p></div></div>
+              <div class="export-selects">
+                <select id="quality-select" class="is-hidden" aria-hidden="true" tabindex="-1"><option value="best">Best available · up to 4K</option></select>
+                <select id="bitrate-select" class="is-hidden" aria-hidden="true" tabindex="-1"><option value="192k" selected>192 kbps</option></select>
+              </div>
+              <div class="export-actions">
+                <button id="export-mp4-button" class="export-button" type="button" disabled><span><strong>Download video</strong><small id="export-video-detail">MP4 · H.264</small></span><span class="export-mark"><span class="export-icon" aria-hidden="true">↓</span></span></button>
+                <button id="export-mp3-button" class="export-button" type="button" disabled><span><strong>Download audio</strong><small id="export-audio-detail">MP3 · 192 kbps</small></span><span class="export-mark"><span class="export-icon" aria-hidden="true">↓</span></span></button>
+              </div>
+              <div class="export-note" id="export-note">Choose a local media file to enable export.</div>
+            </div>
+          </section>
+
+          <section id="jobs-section" class="jobs-section is-hidden" aria-labelledby="jobs-heading">
+            <div class="section-heading">
+              <div><h2 id="jobs-heading" tabindex="-1">Downloads</h2><p>Finished exports are added to the LocalStream Downloads bin, ready for your timeline.</p></div>
+              <div class="editor-heading-actions"><span class="section-count" id="job-count">0</span><button id="back-to-browse" class="quiet-button compact-button" type="button">← Results</button></div>
+            </div>
+            <div id="jobs-list" class="jobs-list">
+              <div class="empty-jobs">Your exports will appear here.</div>
+            </div>
+          </section>
+
+          <footer class="footer-row"><span>Local processing</span><span id="footer-version">0.2.0</span></footer>
+        </main>
+      </div>
+
+      <section id="settings-panel" class="settings-panel is-hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
+          <div class="section-heading settings-heading">
+          <div><h2 id="settings-title">Settings</h2><p id="settings-description">Download location and quality</p></div>
+          <button id="settings-close" class="icon-button" type="button" aria-label="Close settings">×</button>
+        </div>
+        <form id="settings-form" class="settings-form">
+          <div class="setting-card">
+            <label for="setting-default-quality">Maximum video quality</label>
+            <select id="setting-default-quality" name="default-quality"><option value="best">Best available · up to 4K</option><option value="2160">2160p · 4K</option><option value="1440">Up to 1440p</option><option value="1080">Up to 1080p</option><option value="720">Up to 720p</option><option value="480">Up to 480p</option><option value="360">Up to 360p</option></select>
+          </div>
+          <label class="check-row setting-card"><span><strong>Allow formats that require encoding</strong><small>Some video formats may take longer to convert to Premiere-compatible MP4.</small></span><input id="setting-allow-encoding" type="checkbox" /></label>
+          <label class="check-row setting-card"><span><strong>YouTube browser session</strong><small>Use local browser cookies only when YouTube sign-in is required.</small></span><input id="setting-browser-session" type="checkbox" /></label>
+          <div class="setting-card download-location">
+            <div><strong>Download location</strong><span id="setting-output-label" class="field-note"></span></div>
+            <button id="choose-output-folder" class="quiet-button compact-button" type="button">Change…</button>
+          </div>
+          <label class="check-row setting-card"><span><strong>Light mode</strong><small>Use a light theme for the panel.</small></span><input id="setting-light-mode" type="checkbox" /></label>
+          <label class="check-row setting-card"><span><strong>Pause preview when hidden</strong><small>Pause video when Local Stream is not visible.</small></span><input id="setting-pause-hidden" type="checkbox" checked /></label>
+          <div class="form-divider"></div>
+          <label for="setting-youtube-key">YouTube Data API v3 key <span class="field-note">Required for search. Saved on this computer.</span><input id="setting-youtube-key" name="youtube-api-key" type="password" spellcheck="false" autocomplete="off" placeholder="Paste API key" /></label>
+          <label class="check-row"><input id="setting-clear-youtube" type="checkbox" /> Clear saved YouTube key</label>
+          <div class="settings-actions"><button type="submit" class="primary-button">Save settings</button><span id="settings-status" class="field-note" role="status" aria-live="polite"></span></div>
+        </form>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+        <span id="toast-message"></span>
+        <button id="toast-close" class="toast-close" type="button" aria-label="Dismiss message">×</button>
+      </div>
+    </div>
+    <script src="lib/CSInterface.js"></script>
+    <script src="trim.js"></script>
+    <script src="backend-manager.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>

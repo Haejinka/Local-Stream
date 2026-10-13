@@ -1,0 +1,30 @@
+node_modules/
+test-output/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.bak
+.rnd
+docs/screenshots/settings.png
+docs/screenshots/settings-key.png
+
+# User configuration, credentials, cookies, and signing material
+settings.json
+jobs.json
+auth-token.txt
+*.p12
+*.pfx
+*.pem
+*.key
+*.dpapi
+client_secret*.json
+cookies*.txt
+
+# Local tool/runtime downloads and temporary package staging
+tools/
+zxp-stage*/
+dist/*
+!dist/Local-Stream-*.zxp
