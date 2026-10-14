@@ -305,9 +305,21 @@ async function startJob(job) {
           ? `bestvideo${maxHeightPart}+bestaudio/best${maxHeightPart}`
           : `bestvideo[ext=mp4][vcodec^=avc1]${maxHeightPart}+bestaudio[ext=m4a]/best[ext=mp4]${maxHeightPart}`;
       job.progress = 0;
-      let downloadProgressBuffer = '';
+      const downloadProgressBuffers = { stdout: '', stderr: '' };
+      const trackDownloadProgress = (chunk, stream) => {
+        downloadProgressBuffers[stream] += chunk;
+        const lines = downloadProgressBuffers[stream].split(/[\r\n]+/);
+        downloadProgressBuffers[stream] = lines.pop() || '';
+        for (const line of lines) {
+          const match = /\[download\]\s+([\d.]+)%/.exec(line);
+          if (match) {
+            job.progress = Math.min(68, Math.max(job.progress, Math.round(Number(match[1]) * 0.68)));
+            job.updatedAt = new Date().toISOString();
+          }
+        }
+      };
       const downloadArgs = [
-        '--no-playlist', '--no-warnings', '--newline', '--write-info-json',
+        '--no-playlist', '--no-warnings', '--newline', '--progress', '--write-info-json',
         '--format', formatSelector,
         '--download-sections', `*${formatTimestamp(job.start)}-${formatTimestamp(job.end)}`,
         '--force-keyframes-at-cuts',
@@ -320,19 +332,10 @@ async function startJob(job) {
       const downloaded = await runProcess(safeBinary('yt-dlp'), downloadArgs, {
         signal: controller.signal,
         timeoutMs: 12 * 60 * 60 * 1000,
-        onStdout: () => {},
+        onStdout: (chunk) => trackDownloadProgress(chunk, 'stdout'),
         onStderr: (chunk) => {
           stderrTail = (stderrTail + chunk).slice(-5000);
-          downloadProgressBuffer += chunk;
-          const lines = downloadProgressBuffer.split(/[\r\n]+/);
-          downloadProgressBuffer = lines.pop() || '';
-          for (const line of lines) {
-            const match = /\[download\]\s+([\d.]+)%/.exec(line);
-            if (match) {
-              job.progress = Math.min(68, Math.max(job.progress, Math.round(Number(match[1]) * 0.68)));
-              job.updatedAt = new Date().toISOString();
-            }
-          }
+          trackDownloadProgress(chunk, 'stderr');
         }
       });
       downloadedSource = downloaded.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1) || '';

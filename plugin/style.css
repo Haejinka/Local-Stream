@@ -44,6 +44,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="-1"]
 .download-progress-percent { flex: 0 0 auto; color: var(--accent); font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 700; }
 .download-progress-track { height: 6px; margin-top: 7px; overflow: hidden; border-radius: 6px; background: #424242; }
 .download-progress-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--accent-strong); transition: width 220ms ease-out; }
+.download-progress-track.is-indeterminate .download-progress-fill,
+.job-progress.is-indeterminate span { width: 35% !important; animation: progress-scan 1.5s ease-in-out infinite; }
+@keyframes progress-scan { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
 .download-progress-queue { min-height: 0; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.2; }
 .icon-button { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid var(--stroke); border-radius: 50%; background: var(--surface); color: #dedede; }
 .icon-button .ui-icon { width: 18px; height: 18px; }
@@ -290,6 +293,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, [tabindex="-1"]
 @media (prefers-reduced-motion: no-preference) {
   .job-progress span { transition: width 180ms ease-out; }
   .toast { transition: opacity 150ms ease-out; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download-progress-track.is-indeterminate .download-progress-fill,
+  .job-progress.is-indeterminate span { width: 100% !important; animation: none; opacity: .35; }
 }
 
 @media (forced-colors: active) {

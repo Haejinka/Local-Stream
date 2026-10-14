@@ -1330,7 +1330,9 @@ function renderJobs(jobs) {
     if (job.status === 'completed') {
       status.textContent = job.outputPath ? 'Ready to drag' : 'Downloaded';
     } else if (job.status === 'processing' || job.status === 'downloading') {
-      status.textContent = `${job.status === 'processing' ? 'Processing' : 'Downloading'} ${job.progress || 0}%`;
+      status.textContent = job.status === 'downloading' && !job.progress
+        ? 'Downloading…'
+        : `${job.status === 'processing' ? 'Processing' : 'Downloading'} ${job.progress || 0}%`;
     } else {
       status.textContent = job.status === 'queued' ? 'Queued' : job.status === 'failed' ? 'Failed' : 'Cancelled';
     }
@@ -1357,6 +1359,7 @@ function renderJobs(jobs) {
     }
     if (['queued', 'processing', 'downloading'].includes(job.status)) {
       const progress = document.createElement('div'); progress.className = 'job-progress';
+      if (job.status === 'downloading' && !job.progress) progress.classList.add('is-indeterminate');
       const fill = document.createElement('span'); fill.style.width = `${job.status === 'queued' ? 0 : Math.max(2, job.progress || 0)}%`; progress.appendChild(fill); card.appendChild(progress);
     }
     if (job.error) { const message = document.createElement('div'); message.className = 'job-error'; message.textContent = job.error; card.appendChild(message); }
@@ -1390,12 +1393,15 @@ function renderDownloadProgress(jobs) {
   }
   const queuedCount = jobs.filter((job) => job.status === 'queued').length;
   const progress = current.status === 'queued' ? 0 : clamp(Number(current.progress) || 0, 0, 100);
+  const indeterminate = current.status === 'downloading' && progress === 0;
   const step = current.status === 'queued' ? 'Queued' : current.status === 'processing' ? 'Processing' : 'Downloading';
   el['download-progress'].classList.remove('is-hidden');
   el['download-progress-label'].textContent = `${step} · ${current.title || 'Media export'}`;
-  el['download-progress-percent'].textContent = current.status === 'queued' ? 'Waiting' : `${progress}%`;
-  el['download-progress-track'].setAttribute('aria-valuenow', String(progress));
-  el['download-progress-track'].setAttribute('aria-valuetext', current.status === 'queued' ? 'Queued' : `${progress}% ${step.toLowerCase()}`);
+  el['download-progress-percent'].textContent = current.status === 'queued' ? 'Waiting' : indeterminate ? 'Working…' : `${progress}%`;
+  el['download-progress-track'].classList.toggle('is-indeterminate', indeterminate);
+  if (indeterminate) el['download-progress-track'].removeAttribute('aria-valuenow');
+  else el['download-progress-track'].setAttribute('aria-valuenow', String(progress));
+  el['download-progress-track'].setAttribute('aria-valuetext', current.status === 'queued' ? 'Queued' : indeterminate ? 'Downloading; progress unavailable' : `${progress}% ${step.toLowerCase()}`);
   el['download-progress-fill'].style.width = `${progress}%`;
   el['download-progress-queue'].textContent = current.status === 'queued'
     ? `${queuedCount} ${queuedCount === 1 ? 'job' : 'jobs'} in queue`
@@ -1674,7 +1680,7 @@ function initialize() {
   state.initialized = true;
   if (typeof CSInterface === 'function') state.csInterface = new CSInterface();
   cacheElements();
-  el['footer-version'].textContent = '0.2.4 · Premiere CEP';
+  el['footer-version'].textContent = '0.2.5 · Premiere CEP';
   bindEvents();
   renderTimeline();
   void connectBackend();

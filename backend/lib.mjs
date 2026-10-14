@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-export const APP_VERSION = '0.2.4';
+export const APP_VERSION = '0.2.5';
 export const DEFAULT_PORT = 47831;
 export const CEP_EXTENSION_ID = 'com.localstream.premiere';
 export const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.m4v', '.webm', '.avi', '.mts', '.m2ts']);
