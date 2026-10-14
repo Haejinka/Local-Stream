@@ -450,6 +450,16 @@ function updatePreviewAspectRatio() {
   }
 }
 
+function releaseLocalPreview() {
+  const video = el['source-video'];
+  video.pause();
+  if (video.hasAttribute('src')) {
+    video.removeAttribute('src');
+    video.load();
+  }
+  state.sourcePath = '';
+}
+
 function showEditor() {
   updateNavigation(false);
   document.body.classList.add('editor-open');
@@ -465,7 +475,7 @@ function returnToResults() {
   updateNavigation(false);
   document.body.classList.remove('editor-open');
   state.previewLoop = false;
-  el['source-video'].pause();
+  releaseLocalPreview();
   if (state.selectedYouTubeId) sendYouTubeCommand('pause');
   closeClipMenu();
   el['search-area'].classList.remove('is-hidden');
@@ -480,7 +490,7 @@ function showHistory() {
   updateNavigation(true);
   document.body.classList.remove('editor-open');
   state.previewLoop = false;
-  el['source-video'].pause();
+  releaseLocalPreview();
   if (state.selectedYouTubeId) sendYouTubeCommand('pause');
   closeClipMenu();
   el['search-area'].classList.add('is-hidden');
@@ -597,6 +607,7 @@ function fileUrlFromPath(filePath) {
 
 async function loadLocalMedia(filePath, fileUrl, fileName) {
   cancelYouTubePreviewResolution();
+  releaseLocalPreview();
   state.previewLoop = false;
   state.youtubePreviewMode = 'none';
   state.youtubePlayerReady = false;
@@ -631,7 +642,8 @@ async function loadLocalMedia(filePath, fileUrl, fileName) {
 
   try {
     if (!await checkBackend()) throw new Error('Start the backend and connect it in Settings before exporting.');
-    const info = await api('/api/analyze', jsonOptions({ path: state.sourcePath }));
+    const info = await api('/api/analyze', jsonOptions({ path: filePath }));
+    if (state.sourcePath !== filePath) return;
     state.media = info;
     if (Number.isFinite(info.duration) && info.duration > 0) {
       state.duration = info.duration;
@@ -643,7 +655,7 @@ async function loadLocalMedia(filePath, fileUrl, fileName) {
     setQualityOptions();
     renderTimeline();
   } catch (error) {
-    showToast(error.message, true);
+    if (state.sourcePath === filePath) showToast(error.message, true);
   }
 }
 
@@ -1191,21 +1203,6 @@ function queueThumbnail(id) {
   drainThumbnailQueue();
 }
 
-function localVideoThumbnail(job) {
-  const video = document.createElement('video');
-  video.className = 'job-thumbnail-video';
-  video.src = fileUrlFromPath(job.outputPath);
-  video.preload = 'metadata';
-  video.muted = true;
-  video.playsInline = true;
-  video.setAttribute('aria-hidden', 'true');
-  video.addEventListener('loadedmetadata', () => {
-    if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(1, video.duration / 3);
-  }, { once: true });
-  video.addEventListener('error', () => video.remove(), { once: true });
-  return video;
-}
-
 function drainThumbnailQueue() {
   while (state.thumbnailLoading < 2 && state.thumbnailQueue.length) {
     const id = state.thumbnailQueue.shift();
@@ -1224,9 +1221,9 @@ function drainThumbnailQueue() {
       } catch {
         state.thumbnailRetryAfter.set(id, Date.now() + 30_000);
         const job = state.latestJobs.find((item) => item.id === id);
-        if (job?.outputPath) {
+        if (job?.youtubeId) {
           for (const image of el['jobs-list'].querySelectorAll('img[data-thumbnail-id]')) {
-            if (image.dataset.thumbnailId === id) image.replaceWith(localVideoThumbnail(job));
+            if (image.dataset.thumbnailId === id) image.src = `https://i.ytimg.com/vi/${encodeURIComponent(job.youtubeId)}/mqdefault.jpg`;
           }
         }
       } finally {
@@ -1307,16 +1304,14 @@ function renderJobs(jobs) {
     const media = document.createElement('div'); media.className = 'job-thumbnail';
     if (job.format === 'mp4' && job.status === 'completed' && job.outputPath) {
       const cachedUrl = state.thumbnailUrls.get(job.id);
-      if (!cachedUrl && Date.now() < (state.thumbnailRetryAfter.get(job.id) || 0)) {
-        media.appendChild(localVideoThumbnail(job));
-      } else {
-        const image = document.createElement('img');
-        image.alt = '';
-        image.dataset.thumbnailId = job.id;
-        if (cachedUrl) image.src = cachedUrl;
-        else queueThumbnail(job.id);
-        media.appendChild(image);
-      }
+      const image = document.createElement('img');
+      image.alt = '';
+      image.dataset.thumbnailId = job.id;
+      if (cachedUrl) image.src = cachedUrl;
+      else if (Date.now() < (state.thumbnailRetryAfter.get(job.id) || 0)) {
+        if (job.youtubeId) image.src = `https://i.ytimg.com/vi/${encodeURIComponent(job.youtubeId)}/mqdefault.jpg`;
+      } else queueThumbnail(job.id);
+      media.appendChild(image);
     } else if (job.format === 'mp3') {
       media.classList.add('is-audio');
       const note = document.createElement('span'); note.className = 'job-audio-symbol'; note.setAttribute('aria-hidden', 'true'); note.textContent = '♪';
@@ -1679,7 +1674,7 @@ function initialize() {
   state.initialized = true;
   if (typeof CSInterface === 'function') state.csInterface = new CSInterface();
   cacheElements();
-  el['footer-version'].textContent = '0.2.2 · Premiere CEP';
+  el['footer-version'].textContent = '0.2.3 · Premiere CEP';
   bindEvents();
   renderTimeline();
   void connectBackend();

@@ -131,6 +131,9 @@ test('localhost API analyzes, trims, converts, verifies, retries, and persists l
   assert.equal(thumbnail.subarray(0, 2).toString('hex'), 'ffd8');
   const mp4Probe = await runProcess(ffprobe, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', mp4Job.outputPath]);
   assert.ok(Math.abs(Number(mp4Probe.stdout.trim()) - 1.75) < 0.35);
+  const renamedOutput = `${mp4Job.outputPath}.moved`;
+  await fs.rename(mp4Job.outputPath, renamedOutput);
+  await fs.rename(renamedOutput, mp4Job.outputPath);
 
   const mp3Created = await request(base, token, '/api/jobs', {
     method: 'POST', body: { path: sourcePath, title: 'Audio check', start: 1.125, end: 3.5, format: 'mp3', bitrate: '256k' }

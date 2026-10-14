@@ -8,8 +8,8 @@ Local Stream is a CEP panel for Windows. It searches YouTube with your own Data 
 
 | Package | Use |
 | --- | --- |
-| **[Windows setup wizard (0.2.2)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.2.exe)** | Recommended. Installs the panel and prepares required media tools. [SHA-256 checksum](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.2.exe.sha256). |
-| [Signed ZXP (0.2.2)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.2.zxp) | Manual installation through Adobe's Unified Plugin Installer. |
+| **[Windows setup wizard (0.2.3)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.3.exe)** | Recommended. Installs the panel and prepares required media tools. [SHA-256 checksum](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-Setup-0.2.3.exe.sha256). |
+| [Signed ZXP (0.2.3)](https://github.com/Haejinka/Local-Stream/raw/refs/heads/main/dist/Local-Stream-0.2.3.zxp) | Manual installation through Adobe's Unified Plugin Installer. |
 
 Close Premiere before running setup. The wizard uses Adobe Creative Cloud's Unified Plugin Installer and prepares Node.js, FFmpeg, FFprobe, and yt-dlp. See the [Windows setup guide](docs/INSTALLATION.md) for manual installation and troubleshooting.
 
@@ -70,7 +70,7 @@ Recent Downloads keeps finished files in a compact list with thumbnails. Drag a 
 
 ## Quick start: install with the setup wizard
 
-1. Download and run `Local-Stream-Setup-0.2.2.exe` with Premiere closed.
+1. Download and run `Local-Stream-Setup-0.2.3.exe` with Premiere closed.
 2. Start Premiere and open **Window → Extensions (Legacy) → Local Stream**.
 3. Open Settings, paste your YouTube Data API v3 key, and save.
 4. Search, select a result, set the range, and choose **Download video** or **Download audio**.
