@@ -7,7 +7,7 @@ import {
   APP_VERSION, AUDIO_EXTENSIONS, DEFAULT_PORT, MEDIA_EXTENSIONS, VIDEO_EXTENSIONS,
   appDataDir, atomicWriteJson, defaultSettings, formatTimestamp, getMediaInfo,
   decodeHtmlEntities, isYouTubeVideoSearchItem, parseIsoDuration, readJson, resolveBinary, safeSettings, sanitizeFilename,
-  toPublicJob, validateTrim, runProcess
+  toPublicJob, validateTrim, runProcess, youtubeJobTitle
 } from './lib.mjs';
 
 const dataDir = appDataDir();
@@ -291,7 +291,6 @@ async function startJob(job) {
   const jobTempDir = path.join(settings.tempFolder, `job-${job.id}`);
   let downloadedSource = '';
   try {
-    outputPath = await makeOutputPath(job);
     let sourcePath = job.sourcePath;
     let mediaInfo = job.mediaInfo;
     let trimStart = job.start;
@@ -308,7 +307,7 @@ async function startJob(job) {
       job.progress = 0;
       let downloadProgressBuffer = '';
       const downloadArgs = [
-        '--no-playlist', '--no-warnings', '--newline',
+        '--no-playlist', '--no-warnings', '--newline', '--write-info-json',
         '--format', formatSelector,
         '--download-sections', `*${formatTimestamp(job.start)}-${formatTimestamp(job.end)}`,
         '--force-keyframes-at-cuts',
@@ -339,12 +338,14 @@ async function startJob(job) {
       downloadedSource = downloaded.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1) || '';
       if (!downloadedSource || !path.isAbsolute(downloadedSource)) {
         const candidates = await fs.readdir(jobTempDir, { withFileTypes: true });
-        const candidate = candidates.find((entry) => entry.isFile() && !entry.name.endsWith('.part'));
+        const candidate = candidates.find((entry) => entry.isFile() && !entry.name.endsWith('.part') && !entry.name.endsWith('.info.json'));
         if (candidate) downloadedSource = path.join(jobTempDir, candidate.name);
       }
       if (!downloadedSource) throw new Error('YouTube finished without creating a downloadable media file.');
       try { await fs.access(downloadedSource); }
       catch { throw new Error('The downloaded YouTube media file could not be found.'); }
+      const metadata = await readJson(path.join(jobTempDir, `${job.youtubeId}.info.json`), {});
+      job.title = youtubeJobTitle(job.title, metadata.title, job.youtubeId);
       mediaInfo = await getMediaInfo(downloadedSource, safeBinary('ffprobe'), controller.signal);
       const selectedDuration = job.end - job.start;
       trimStart = 0;
@@ -355,6 +356,7 @@ async function startJob(job) {
       job.progress = 70;
     }
     if (controller.signal.aborted) throw new Error('Job cancelled.');
+    outputPath = await makeOutputPath(job);
     job.status = 'processing';
     job.updatedAt = new Date().toISOString();
     await persistJobs();
@@ -467,7 +469,7 @@ async function createJob(body) {
       throw Object.assign(new Error('YouTube must report a valid video duration before downloading.'), { status: 400 });
     }
     trim = validateTrim(body.start, body.end, sourceDuration);
-    title = sanitizeFilename(decodeHtmlEntities(String(body.title || youtubeId).slice(0, 160)));
+    title = youtubeJobTitle(body.title, '', youtubeId);
     sourceType = 'youtube';
     allowFormatsRequireEncoding = Boolean(settings.allowFormatsRequireEncoding);
     youtubeBrowserSession = Boolean(settings.youtubeBrowserSession);

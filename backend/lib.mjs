@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-export const APP_VERSION = '0.2.3';
+export const APP_VERSION = '0.2.4';
 export const DEFAULT_PORT = 47831;
 export const CEP_EXTENSION_ID = 'com.localstream.premiere';
 export const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.m4v', '.webm', '.avi', '.mts', '.m2ts']);
@@ -208,6 +208,13 @@ export function decodeHtmlEntities(value) {
     if (!Number.isInteger(codePoint) || codePoint <= 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return '\uFFFD';
     return String.fromCodePoint(codePoint);
   });
+}
+
+export function youtubeJobTitle(requestedTitle, metadataTitle, videoId) {
+  const requested = String(requestedTitle || '').trim();
+  const generic = !requested || /^(youtube|untitled) video$/i.test(requested) || requested === videoId;
+  const preferred = generic ? String(metadataTitle || '').trim() || videoId : requested;
+  return sanitizeFilename(decodeHtmlEntities(preferred.slice(0, 160)), videoId);
 }
 
 export function toPublicJob(job) {

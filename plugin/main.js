@@ -1674,7 +1674,7 @@ function initialize() {
   state.initialized = true;
   if (typeof CSInterface === 'function') state.csInterface = new CSInterface();
   cacheElements();
-  el['footer-version'].textContent = '0.2.3 · Premiere CEP';
+  el['footer-version'].textContent = '0.2.4 · Premiere CEP';
   bindEvents();
   renderTimeline();
   void connectBackend();

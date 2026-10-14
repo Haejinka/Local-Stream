@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../plugin/trim.js';
-import { formatTimestamp, parseIsoDuration, sanitizeFilename, validateTrim } from '../backend/lib.mjs';
+import { formatTimestamp, parseIsoDuration, sanitizeFilename, validateTrim, youtubeJobTitle } from '../backend/lib.mjs';
 
 const { formatTime, parseTime, normalizeRange } = globalThis.LocalStreamTrim;
 
@@ -26,4 +26,12 @@ test('filename and YouTube duration helpers sanitize display values', () => {
   assert.equal(sanitizeFilename('A:/b?c*'), 'A b c');
   assert.equal(parseIsoDuration('PT1H2M3.5S'), 3723.5);
   assert.equal(parseIsoDuration('P3D'), null);
+});
+
+test('pasted YouTube links use the downloaded video title for output names', () => {
+  const id = 'dQw4w9WgXcQ';
+  assert.equal(youtubeJobTitle('YouTube video', 'A real &amp; useful title', id), 'A real & useful title');
+  assert.equal(youtubeJobTitle('YouTube video', '', id), id);
+  assert.equal(youtubeJobTitle('Search result title', 'Another title', id), 'Search result title');
+  assert.equal(youtubeJobTitle('Untitled video', 'A:/b?c*', id), 'A b c');
 });
